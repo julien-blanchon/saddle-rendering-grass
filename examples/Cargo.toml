@@ -13,6 +13,7 @@ resolver = "3"
 [workspace.dependencies]
 bevy = "0.18"
 saddle-rendering-grass = { path = ".." }
+grass = { path = ".." }
 
 [workspace.lints.clippy]
 too_many_arguments = "allow"
