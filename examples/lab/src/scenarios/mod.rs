@@ -1,12 +1,12 @@
 mod support;
 
 use bevy::prelude::*;
+use grass::{GrassDiagnostics, GrassWind};
 use saddle_bevy_e2e::{
     action::Action,
     actions::{assertions, inspect},
     scenario::Scenario,
 };
-use grass::{GrassDiagnostics, GrassWind};
 
 use crate::LabState;
 
