@@ -1,5 +1,6 @@
 use bevy::app::PostStartup;
 use bevy::asset::{load_internal_asset, uuid_handle};
+use bevy::camera::visibility::VisibilitySystems;
 use bevy::ecs::{intern::Interned, schedule::ScheduleLabel};
 use bevy::pbr::{ExtendedMaterial, MaterialPlugin, StandardMaterial};
 use bevy::prelude::*;
@@ -22,7 +23,9 @@ pub use config::{
     GrassLodConfig, GrassSurface, GrassTextureChannel,
 };
 pub use messages::GrassRebuildRequest;
-pub use resources::{GrassDebugSettings, GrassDiagnostics, GrassPatchDiagnostics, GrassWind};
+pub use resources::{
+    GrassDebugSettings, GrassDiagnostics, GrassPatchDiagnostics, GrassWind, GrassWindBridge,
+};
 
 pub use materials::{ATTRIBUTE_GRASS_ROOT_PHASE, ATTRIBUTE_GRASS_VARIATION, MAX_INTERACTION_ZONES};
 
@@ -89,6 +92,7 @@ impl Plugin for GrassPlugin {
         app.add_plugins(MaterialPlugin::<GrassMaterial>::default())
             .init_resource::<resources::GrassRuntimeState>()
             .init_resource::<GrassWind>()
+            .init_resource::<GrassWindBridge>()
             .init_resource::<GrassDebugSettings>()
             .init_resource::<GrassDiagnostics>()
             .init_resource::<resources::GrassInteractionState>()
@@ -107,6 +111,7 @@ impl Plugin for GrassPlugin {
             .register_type::<GrassSurface>()
             .register_type::<GrassTextureChannel>()
             .register_type::<GrassWind>()
+            .register_type::<GrassWindBridge>()
             .add_systems(self.activate_schedule, systems::activate_runtime)
             .add_systems(self.deactivate_schedule, systems::deactivate_runtime)
             .configure_sets(
@@ -141,12 +146,6 @@ impl Plugin for GrassPlugin {
             )
             .add_systems(
                 self.update_schedule,
-                systems::publish_diagnostics
-                    .in_set(GrassSystems::Upload)
-                    .run_if(systems::runtime_is_active),
-            )
-            .add_systems(
-                self.update_schedule,
                 (
                     systems::sync_chunk_transforms,
                     systems::sync_material_uniforms,
@@ -159,6 +158,12 @@ impl Plugin for GrassPlugin {
                 self.update_schedule,
                 systems::draw_debug_gizmos
                     .in_set(GrassSystems::Debug)
+                    .run_if(systems::runtime_is_active),
+            )
+            .add_systems(
+                PostUpdate,
+                systems::publish_diagnostics
+                    .after(VisibilitySystems::CheckVisibility)
                     .run_if(systems::runtime_is_active),
             );
     }

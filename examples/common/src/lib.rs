@@ -3,8 +3,77 @@ use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use bevy::window::WindowResolution;
+use bevy_flair::FlairPlugin;
+use bevy_input_focus::{InputDispatchPlugin, tab_navigation::TabNavigationPlugin};
+use bevy_ui_widgets::UiWidgetsPlugins;
+use saddle_pane::prelude::*;
 
-use grass::{GrassArchetype, GrassConfig, GrassDiagnostics, GrassPatch, GrassPatchBundle};
+use grass::{
+    GrassArchetype, GrassConfig, GrassDiagnostics, GrassPatch, GrassPatchBundle, GrassWind,
+    GrassWindBridge,
+};
+
+pub struct GrassExampleUiPlugin;
+
+#[derive(Resource, Debug, Clone, Pane)]
+#[pane(title = "Grass Demo", position = "top-right")]
+pub struct GrassExamplePane {
+    #[pane(slider, min = 4.0, max = 64.0, step = 1.0)]
+    pub density_per_square_unit: f32,
+    #[pane(slider, min = 8.0, max = 36.0, step = 0.5)]
+    pub near_lod_distance: f32,
+    #[pane(slider, min = 18.0, max = 72.0, step = 1.0)]
+    pub mid_lod_distance: f32,
+    #[pane(slider, min = 36.0, max = 120.0, step = 1.0)]
+    pub far_lod_distance: f32,
+    #[pane]
+    pub use_world_wind: bool,
+    #[pane(slider, min = 0.0, max = 1.0, step = 0.01)]
+    pub sway_strength: f32,
+    #[pane(slider, min = 0.0, max = 0.8, step = 0.01)]
+    pub gust_strength: f32,
+    #[pane(slider, min = 0.0, max = 0.4, step = 0.01)]
+    pub flutter_strength: f32,
+    #[pane(monitor)]
+    pub visible_blades: u32,
+    #[pane(monitor)]
+    pub active_chunks: u32,
+    #[pane(monitor)]
+    pub wind_zone_count: u32,
+}
+
+impl Default for GrassExamplePane {
+    fn default() -> Self {
+        Self {
+            density_per_square_unit: 32.0,
+            near_lod_distance: 18.0,
+            mid_lod_distance: 42.0,
+            far_lod_distance: 78.0,
+            use_world_wind: true,
+            sway_strength: 0.24,
+            gust_strength: 0.14,
+            flutter_strength: 0.06,
+            visible_blades: 0,
+            active_chunks: 0,
+            wind_zone_count: 0,
+        }
+    }
+}
+
+impl Plugin for GrassExampleUiPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<GrassExamplePane>()
+            .add_plugins((
+                FlairPlugin,
+                InputDispatchPlugin,
+                UiWidgetsPlugins,
+                TabNavigationPlugin,
+                PanePlugin,
+            ))
+            .register_pane::<GrassExamplePane>()
+            .add_systems(Update, (sync_grass_pane, sync_grass_pane_monitors));
+    }
+}
 
 pub fn default_plugins(title: &str) -> bevy::app::PluginGroupBuilder {
     DefaultPlugins.set(WindowPlugin {
@@ -266,4 +335,36 @@ pub fn sync_overlay(
     }
 
     overlay.0 = lines.join("\n");
+}
+
+fn sync_grass_pane(
+    pane: Res<GrassExamplePane>,
+    mut configs: Query<&mut GrassConfig>,
+    mut wind: ResMut<GrassWind>,
+    mut bridge: ResMut<GrassWindBridge>,
+) {
+    if !pane.is_changed() {
+        return;
+    }
+
+    for mut config in &mut configs {
+        config.density_per_square_unit = pane.density_per_square_unit;
+        config.lod.bands[0].max_distance = pane.near_lod_distance;
+        config.lod.bands[1].max_distance = pane.mid_lod_distance.max(pane.near_lod_distance + 1.0);
+        config.lod.bands[2].max_distance = pane.far_lod_distance.max(pane.mid_lod_distance + 1.0);
+    }
+
+    wind.sway_strength = pane.sway_strength;
+    wind.gust_strength = pane.gust_strength;
+    wind.flutter_strength = pane.flutter_strength;
+    bridge.enabled = pane.use_world_wind;
+}
+
+fn sync_grass_pane_monitors(
+    diagnostics: Res<GrassDiagnostics>,
+    mut pane: ResMut<GrassExamplePane>,
+) {
+    pane.visible_blades = diagnostics.visible_blades;
+    pane.active_chunks = diagnostics.active_chunks;
+    pane.wind_zone_count = diagnostics.wind_zone_count;
 }

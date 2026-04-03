@@ -12,6 +12,7 @@ fn main() {
             common::default_plugins("Grass Example - LOD"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
             GrassPlugin::default(),
+            common::GrassExampleUiPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (animate_camera, common::sync_overlay))

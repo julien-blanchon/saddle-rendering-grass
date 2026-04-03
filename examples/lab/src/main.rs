@@ -9,6 +9,8 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 #[cfg(feature = "dev")]
 use bevy::remote::{RemotePlugin, http::RemoteHttpPlugin};
+use bevy::window::WindowResolution;
+use bevy::winit::WinitSettings;
 #[cfg(feature = "dev")]
 use bevy_brp_extras::BrpExtrasPlugin;
 use grass::{GrassConfig, GrassInteractionZone, GrassPatch, GrassPlugin, GrassSurface, GrassWind};
@@ -35,10 +37,23 @@ fn main() {
         flutter_strength: 0.06,
         ..default()
     });
+    app.insert_resource(WinitSettings::continuous());
     app.add_plugins((
-        common::default_plugins("Grass Lab"),
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Grass Lab".into(),
+                resolution: if cfg!(feature = "e2e") {
+                    WindowResolution::new(960, 540)
+                } else {
+                    WindowResolution::new(1440, 900)
+                },
+                ..default()
+            }),
+            ..default()
+        }),
         FrameTimeDiagnosticsPlugin::default(),
         GrassPlugin::default(),
+        common::GrassExampleUiPlugin,
     ));
     #[cfg(feature = "dev")]
     app.add_plugins((
@@ -53,17 +68,36 @@ fn main() {
     app.run();
 }
 
+fn lab_density_scale() -> f32 {
+    if cfg!(feature = "e2e") { 0.18 } else { 1.0 }
+}
+
+fn lab_patch_scale() -> f32 {
+    if cfg!(feature = "e2e") { 0.45 } else { 1.0 }
+}
+
+fn lab_chunk_scale() -> f32 {
+    if cfg!(feature = "e2e") { 1.5 } else { 1.0 }
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
+    let density_scale = lab_density_scale();
+    let patch_scale = lab_patch_scale();
+    let chunk_scale = lab_chunk_scale();
+
     let camera = common::spawn_camera(
         &mut commands,
         Vec3::new(-18.0, 12.0, 30.0),
         Vec3::new(0.0, 1.0, -20.0),
     );
+    if cfg!(feature = "e2e") {
+        commands.entity(camera).insert(Msaa::Off);
+    }
     common::spawn_lighting(&mut commands);
     common::spawn_ground(&mut commands, &mut meshes, &mut materials, 220.0);
     let ramp = common::spawn_ramp_surface(&mut commands, &mut meshes, &mut materials);
@@ -77,13 +111,13 @@ fn setup(
         "Courtyard Turf",
         Transform::from_xyz(-15.0, 0.0, 6.0),
         GrassPatch {
-            half_size: Vec2::new(6.0, 5.0),
+            half_size: Vec2::new(6.0, 5.0) * patch_scale,
             density_scale: 1.0,
             seed: 11,
             ..default()
         },
         GrassConfig {
-            density_per_square_unit: 44.0,
+            density_per_square_unit: 44.0 * density_scale,
             density_map: Some(grass::GrassDensityMap {
                 image: radial_density,
                 ..default()
@@ -98,16 +132,16 @@ fn setup(
         "Open Meadow LOD",
         Transform::from_xyz(0.0, 0.0, -52.0),
         GrassPatch {
-            half_size: Vec2::new(24.0, 34.0),
+            half_size: Vec2::new(24.0, 34.0) * patch_scale,
             density_scale: 1.0,
             seed: 7,
             chunking: grass::GrassChunking {
-                chunk_size: Vec2::new(6.0, 6.0),
+                chunk_size: Vec2::new(6.0, 6.0) * chunk_scale,
             },
             ..default()
         },
         GrassConfig {
-            density_per_square_unit: 30.0,
+            density_per_square_unit: 30.0 * density_scale,
             density_map: Some(grass::GrassDensityMap {
                 image: checker_density,
                 ..default()
@@ -125,12 +159,12 @@ fn setup(
             seed: 27,
             surface: GrassSurface::Mesh(ramp),
             chunking: grass::GrassChunking {
-                chunk_size: Vec2::new(3.0, 2.5),
+                chunk_size: Vec2::new(3.0, 2.5) * chunk_scale,
             },
             ..default()
         },
         GrassConfig {
-            density_per_square_unit: 26.0,
+            density_per_square_unit: 26.0 * density_scale,
             archetypes: vec![common::meadow_archetype(), common::flower_archetype()],
             ..default()
         },
@@ -141,13 +175,13 @@ fn setup(
         "Interaction Strip",
         Transform::from_xyz(14.0, 0.0, -8.0),
         GrassPatch {
-            half_size: Vec2::new(3.5, 18.0),
+            half_size: Vec2::new(3.5, 18.0) * patch_scale,
             density_scale: 1.1,
             seed: 900,
             ..default()
         },
         GrassConfig {
-            density_per_square_unit: 48.0,
+            density_per_square_unit: 48.0 * density_scale,
             archetypes: vec![common::meadow_archetype()],
             ..default()
         },

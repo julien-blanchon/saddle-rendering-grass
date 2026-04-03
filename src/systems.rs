@@ -3,6 +3,7 @@ use bevy::light::NotShadowCaster;
 use bevy::mesh::Mesh3d;
 use bevy::pbr::MeshMaterial3d;
 use bevy::prelude::*;
+use saddle_world_wind::{WindConfig, WindZone, sample_wind_with_zones, snapshot_zone};
 
 use crate::components::{GrassChunkRuntime, GrassGenerated, GrassPatchState};
 use crate::config::{GrassConfig, GrassSurface};
@@ -11,7 +12,7 @@ use crate::materials::build_material;
 use crate::mesh::build_chunk_mesh;
 use crate::resources::{
     GrassDebugSettings, GrassDiagnostics, GrassInteractionSample, GrassInteractionState,
-    GrassPatchDiagnostics, GrassRuntimeState, GrassWind,
+    GrassPatchDiagnostics, GrassRuntimeState, GrassWind, GrassWindBridge,
 };
 use crate::scatter::{mesh_chunk_samples, planar_chunk_samples};
 use crate::surface::{ChunkLayout, SurfaceBake, bake_mesh_surface};
@@ -159,7 +160,11 @@ pub(crate) fn rebuild_dirty_patches(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<GrassMaterial>>,
     images: Res<Assets<Image>>,
-    wind: Res<GrassWind>,
+    fallback_wind: Res<GrassWind>,
+    wind_bridge: Res<GrassWindBridge>,
+    time: Res<Time>,
+    wind_config: Option<Res<WindConfig>>,
+    wind_zones: Query<(&WindZone, &GlobalTransform)>,
     interactions: Res<GrassInteractionState>,
     source_meshes: Query<(&Mesh3d, &GlobalTransform)>,
     mut patches: Query<(
@@ -170,6 +175,8 @@ pub(crate) fn rebuild_dirty_patches(
         &mut GrassPatchState,
     )>,
 ) {
+    let zone_snapshots = world_wind_snapshots(&wind_zones);
+
     for (patch_entity, patch, config, patch_global, mut state) in &mut patches {
         if !state.dirty {
             continue;
@@ -195,10 +202,6 @@ pub(crate) fn rebuild_dirty_patches(
             if archetype.weight <= 0.0 {
                 continue;
             }
-            let material = build_material(archetype, &wind, &interactions.zones);
-            let material_handle = materials.add(material);
-            state.material_handles.push(material_handle.clone());
-
             for lod in &lods {
                 for chunk in &build_plan.chunks {
                     let samples = match &build_plan.kind {
@@ -247,6 +250,20 @@ pub(crate) fn rebuild_dirty_patches(
                     ) else {
                         continue;
                     };
+                    let chunk_world_center = build_plan
+                        .surface_global
+                        .transform_point(chunk.center + Vec3::Y * wind_bridge.sample_height_offset);
+                    let resolved_wind = resolve_grass_wind(
+                        &fallback_wind,
+                        &wind_bridge,
+                        wind_config.as_deref(),
+                        &zone_snapshots,
+                        chunk_world_center,
+                        time.elapsed_secs(),
+                    );
+                    let material = build_material(archetype, &resolved_wind, &interactions.zones);
+                    let material_handle = materials.add(material);
+                    state.material_handles.push(material_handle.clone());
                     let mesh_handle = meshes.add(mesh);
                     let local_transform = chunk_local_transform(
                         patch_global,
@@ -273,6 +290,9 @@ pub(crate) fn rebuild_dirty_patches(
                         Mesh3d(mesh_handle),
                         MeshMaterial3d(material_handle.clone()),
                         local_transform,
+                        Visibility::default(),
+                        InheritedVisibility::default(),
+                        ViewVisibility::default(),
                         VisibilityRange {
                             start_margin: lod.visibility_range.start_margin.clone(),
                             end_margin: lod.visibility_range.end_margin.clone(),
@@ -315,31 +335,53 @@ pub(crate) fn sync_chunk_transforms(
 }
 
 pub(crate) fn sync_material_uniforms(
-    wind: Res<GrassWind>,
+    fallback_wind: Res<GrassWind>,
+    wind_bridge: Res<GrassWindBridge>,
+    time: Res<Time>,
+    wind_config: Option<Res<WindConfig>>,
+    wind_zones: Query<(&WindZone, &GlobalTransform)>,
     interactions: Res<GrassInteractionState>,
     mut materials: ResMut<Assets<GrassMaterial>>,
-    patches: Query<&GrassPatchState, With<GrassPatch>>,
+    chunks: Query<(&GlobalTransform, &MeshMaterial3d<GrassMaterial>), With<GrassChunkRuntime>>,
 ) {
-    if !wind.is_changed() && !interactions.is_changed() {
+    if !fallback_wind.is_changed()
+        && !wind_bridge.is_changed()
+        && wind_config
+            .as_ref()
+            .is_none_or(|config| !config.is_changed())
+        && !interactions.is_changed()
+        && wind_zones.iter().len() == 0
+    {
         return;
     }
 
-    for state in &patches {
-        for handle in &state.material_handles {
-            let Some(material) = materials.get_mut(handle) else {
-                continue;
-            };
-            material.extension.uniform =
-                crate::materials::GrassMaterialUniform::from_wind_and_zones(
-                    &wind,
-                    &interactions.zones,
-                );
-        }
+    let zone_snapshots = world_wind_snapshots(&wind_zones);
+    for (transform, material_handle) in &chunks {
+        let Some(material) = materials.get_mut(&material_handle.0) else {
+            continue;
+        };
+        let sample_point =
+            transform.translation() + Vec3::Y * wind_bridge.sample_height_offset.max(0.0);
+        let resolved_wind = resolve_grass_wind(
+            &fallback_wind,
+            &wind_bridge,
+            wind_config.as_deref(),
+            &zone_snapshots,
+            sample_point,
+            time.elapsed_secs(),
+        );
+        material.extension.uniform = crate::materials::GrassMaterialUniform::from_wind_and_zones(
+            &resolved_wind,
+            &interactions.zones,
+        );
     }
 }
 
 pub(crate) fn publish_diagnostics(
     runtime: Res<GrassRuntimeState>,
+    wind_bridge: Res<GrassWindBridge>,
+    wind_config: Option<Res<WindConfig>>,
+    wind_zones: Query<&WindZone>,
     interactions: Res<GrassInteractionState>,
     patch_query: Query<(Entity, Option<&Name>, &GrassPatchState), With<GrassPatch>>,
     chunk_query: Query<(&GrassChunkRuntime, Option<&ViewVisibility>)>,
@@ -362,6 +404,8 @@ pub(crate) fn publish_diagnostics(
         })
         .sum();
     diagnostics.interaction_zones = interactions.zones.len() as u32;
+    diagnostics.using_world_wind = wind_bridge.enabled && wind_config.is_some();
+    diagnostics.wind_zone_count = wind_zones.iter().count() as u32;
     diagnostics.patches.clear();
 
     for (entity, name, state) in &patch_query {
@@ -571,6 +615,36 @@ fn chunk_local_transform(
     let world_from_chunk = surface_global.to_matrix() * Mat4::from_translation(center_local);
     let local = patch_global.to_matrix().inverse() * world_from_chunk;
     Transform::from_matrix(local)
+}
+
+fn world_wind_snapshots(
+    zones: &Query<(&WindZone, &GlobalTransform)>,
+) -> Vec<saddle_world_wind::WindZoneSnapshot> {
+    let mut snapshots = zones
+        .iter()
+        .map(|(zone, transform)| snapshot_zone(zone, transform))
+        .collect::<Vec<_>>();
+    snapshots.sort_by_key(|snapshot| std::cmp::Reverse(snapshot.zone.priority));
+    snapshots
+}
+
+fn resolve_grass_wind(
+    fallback_wind: &GrassWind,
+    wind_bridge: &GrassWindBridge,
+    wind_config: Option<&WindConfig>,
+    zone_snapshots: &[saddle_world_wind::WindZoneSnapshot],
+    sample_point: Vec3,
+    time_secs: f32,
+) -> GrassWind {
+    let Some(wind_config) = wind_config else {
+        return fallback_wind.clone();
+    };
+    if !wind_bridge.enabled {
+        return fallback_wind.clone();
+    }
+
+    let sample = sample_wind_with_zones(sample_point, time_secs, wind_config, zone_snapshots);
+    fallback_wind.resolved_from_world_sample(wind_bridge, &sample)
 }
 
 #[cfg(test)]

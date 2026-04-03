@@ -51,11 +51,12 @@ Generated chunk entities are children of the patch entity. Deactivation despawns
 
 - `GrassPatch` and `GrassConfig` are the authoring surface.
 - `GrassWind` is the shared runtime motion surface.
+- `GrassWindBridge` is the optional bridge into `saddle-world-wind`.
 - `GrassInteractionZone` is the reusable deformation hook.
 - `GrassDiagnostics` is the public readback / BRP surface.
 - `GrassRebuildRequest` is the public manual invalidation hook.
 
-`GrassWind` is intentionally just a resource. A future shared `wind` crate can drive it directly without a hard dependency or adapter layer inside `grass`.
+`GrassWind` remains the standalone fallback profile. When `saddle-world-wind` is present, `GrassWindBridge` samples the shared field per generated chunk and maps it into the grass material uniform. That keeps `grass` usable on its own while still letting it participate in a larger atmosphere stack.
 
 Internal mesh payloads, scatter caches, surface bakes, and shader plumbing stay private.
 
@@ -118,6 +119,8 @@ The vertex shader combines four motion layers:
 2. **gust noise**: hashed world-space noise modulated by `gust_frequency` and `gust_speed`
 3. **per-blade flutter**: high-frequency local motion with phase variation
 4. **local interaction zones**: bend / flatten offsets from nearby `GrassInteractionZone`s
+
+If `saddle-world-wind` is active, those authored `GrassWind` values become the baseline profile and the runtime samples the shared wind field at each chunk center before updating the material uniform.
 
 Per-blade variation is baked into the mesh as custom vertex attributes:
 

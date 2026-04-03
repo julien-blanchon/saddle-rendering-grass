@@ -62,3 +62,25 @@ fn grass_patch_requires_default_config() {
         "spawning GrassPatch alone should provide a default GrassConfig"
     );
 }
+
+#[test]
+fn generated_chunks_include_visibility_components() {
+    let mut app = test_app();
+    app.world_mut()
+        .spawn((GrassPatch::default(), GrassConfig::default()));
+
+    app.update();
+
+    let world = app.world_mut();
+    let mut generated = world.query_filtered::<(
+        &crate::components::GrassGenerated,
+        &Visibility,
+        &InheritedVisibility,
+        &ViewVisibility,
+    ), With<crate::components::GrassGenerated>>();
+
+    assert!(
+        generated.iter(world).next().is_some(),
+        "runtime should spawn at least one generated chunk"
+    );
+}

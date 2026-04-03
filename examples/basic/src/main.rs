@@ -9,6 +9,7 @@ fn main() {
             common::default_plugins("Grass Example - Basic"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
             GrassPlugin::default(),
+            common::GrassExampleUiPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, common::sync_overlay)

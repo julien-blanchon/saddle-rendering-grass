@@ -1,7 +1,13 @@
 use grass_example_common as common;
 
 use bevy::prelude::*;
-use grass::{GrassConfig, GrassPatch, GrassPlugin, GrassWind};
+use grass::{GrassConfig, GrassPatch, GrassPlugin, GrassWind, GrassWindBridge};
+use saddle_world_wind::{
+    WindBlendMode, WindPlugin, WindProfile, WindZone, WindZoneFalloff, WindZoneShape,
+};
+
+#[derive(Component)]
+struct CourtyardGustLane;
 
 fn main() {
     App::new()
@@ -12,13 +18,19 @@ fn main() {
             flutter_strength: 0.09,
             ..default()
         })
+        .insert_resource(GrassWindBridge {
+            sample_height_offset: 0.55,
+            ..default()
+        })
         .add_plugins((
             common::default_plugins("Grass Example - Wind"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
             GrassPlugin::default(),
+            common::GrassExampleUiPlugin,
+            WindPlugin::default().with_config(WindProfile::Gale.config()),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (animate_wind, common::sync_overlay))
+        .add_systems(Update, (animate_gust_lane, common::sync_overlay))
         .run();
 }
 
@@ -93,11 +105,41 @@ fn setup(
             ..default()
         },
     );
+
+    commands.spawn((
+        Name::new("Courtyard Gust Lane"),
+        CourtyardGustLane,
+        WindZone {
+            shape: WindZoneShape::Box {
+                half_extents: Vec3::new(2.2, 1.6, 9.0),
+            },
+            falloff: WindZoneFalloff::SmoothStep,
+            blend_mode: WindBlendMode::Additive,
+            direction: Vec3::new(1.0, 0.0, 0.18),
+            speed: 8.0,
+            intensity: 0.9,
+            turbulence_multiplier: 1.25,
+            gust_multiplier: 1.35,
+            priority: 6,
+            ..default()
+        },
+        Transform::from_xyz(0.0, 1.0, -4.5),
+        GlobalTransform::default(),
+    ));
 }
 
-fn animate_wind(time: Res<Time>, mut wind: ResMut<GrassWind>) {
+fn animate_gust_lane(
+    time: Res<Time>,
+    mut wind: ResMut<GrassWind>,
+    mut query: Query<&mut Transform, With<CourtyardGustLane>>,
+) {
     let t = time.elapsed_secs();
     wind.direction = Vec2::new(0.8 + t.sin() * 0.2, 0.15 + t.cos() * 0.25).normalize_or_zero();
     wind.sway_strength = 0.28 + 0.08 * (t * 0.5).sin().abs();
     wind.gust_strength = 0.12 + 0.1 * (t * 0.35).sin().abs();
+
+    for mut transform in &mut query {
+        transform.translation.x = (t * 0.42).sin() * 4.5;
+        transform.rotation = Quat::from_rotation_y((t * 0.18).sin() * 0.22);
+    }
 }

@@ -96,6 +96,22 @@ This document lists the public tuning surface for `grass`. Defaults are the curr
 
 Updating `GrassWind` does not rebuild patches. It only refreshes the shared material uniform.
 
+## `GrassWindBridge`
+
+`GrassWindBridge` is the optional adapter from `saddle-world-wind` into the grass runtime. It keeps `GrassWind` as the authored fallback profile, then scales the sampled shared wind field into grass-specific sway / gust / flutter amplitudes.
+
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+|------|------|---------|------------------------|---------------|-------------|
+| `enabled` | `bool` | `true` | when `false`, ignore `saddle-world-wind` even if it is present | forces the crate to use the standalone `GrassWind` profile only | none |
+| `sample_height_offset` | `f32` | `0.35` | local height offset above each chunk center | samples wind slightly above the ground instead of at the exact patch plane | negligible |
+| `sway_strength_scale` | `f32` | `1.35` | `>= 0` | multiplies sampled `WindSample::sway_factor` into bend amplitude | negligible |
+| `sway_frequency_from_turbulence` | `f32` | `0.9` | `>= 0` | adds turbulence-driven variation to macro sway frequency | negligible |
+| `sway_speed_from_speed` | `f32` | `0.18` | `>= 0` | adds shared wind speed into macro sway speed | negligible |
+| `gust_strength_scale` | `f32` | `0.28` | `>= 0` | maps shared gust envelopes into the grass gust layer | negligible |
+| `gust_frequency_from_turbulence` | `f32` | `0.45` | `>= 0` | increases gust noise detail under turbulent shared wind | negligible |
+| `gust_speed_from_speed` | `f32` | `0.08` | `>= 0` | accelerates gust evolution under faster shared wind | negligible |
+| `flutter_strength_scale` | `f32` | `0.2` | `>= 0` | maps sampled flutter detail into high-frequency blade motion | negligible |
+
 ## `GrassInteractionZone`
 
 | Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |

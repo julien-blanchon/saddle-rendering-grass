@@ -12,6 +12,7 @@ fn main() {
             common::default_plugins("Grass Example - Interaction Strip"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
             GrassPlugin::default(),
+            common::GrassExampleUiPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (move_walker, common::sync_overlay))

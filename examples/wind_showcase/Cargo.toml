@@ -8,6 +8,8 @@ publish = false
 bevy = { workspace = true }
 grass = { workspace = true }
 grass_example_common = { path = "../common" }
+saddle-pane = { workspace = true }
+saddle-world-wind = { git = "https://github.com/julien-blanchon/saddle-world-wind" }
 
 [lints]
 workspace = true
