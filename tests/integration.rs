@@ -170,12 +170,14 @@ fn mesh_surface_patch_rebuilds_when_source_mesh_handle_changes() {
 
     app.world_mut().run_schedule(Activate);
     app.world_mut().run_schedule(Tick);
+    app.world_mut().run_schedule(PostUpdate);
     let initial_blades = patch_diagnostics(&app, "Mesh Patch").blade_count;
 
     app.world_mut()
         .entity_mut(source)
         .insert(Mesh3d(small_surface.clone()));
     app.world_mut().run_schedule(Tick);
+    app.world_mut().run_schedule(PostUpdate);
     let rebuilt_blades = patch_diagnostics(&app, "Mesh Patch").blade_count;
 
     assert!(
