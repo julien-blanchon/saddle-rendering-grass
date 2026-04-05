@@ -20,6 +20,12 @@ pub struct GrassExampleUiPlugin;
 pub struct GrassExamplePane {
     #[pane(slider, min = 4.0, max = 64.0, step = 1.0)]
     pub density_per_square_unit: f32,
+    #[pane(slider, min = 0.1, max = 2.5, step = 0.05)]
+    pub blade_height_max: f32,
+    #[pane(slider, min = 0.01, max = 0.12, step = 0.005)]
+    pub blade_width_max: f32,
+    #[pane]
+    pub cast_shadows: bool,
     #[pane(slider, min = 8.0, max = 36.0, step = 0.5)]
     pub near_lod_distance: f32,
     #[pane(slider, min = 18.0, max = 72.0, step = 1.0)]
@@ -28,12 +34,24 @@ pub struct GrassExamplePane {
     pub far_lod_distance: f32,
     #[pane]
     pub use_world_wind: bool,
-    #[pane(slider, min = 0.0, max = 1.0, step = 0.01)]
+    #[pane(slider, min = 0.0, max = 0.6, step = 0.005)]
     pub sway_strength: f32,
-    #[pane(slider, min = 0.0, max = 0.8, step = 0.01)]
+    #[pane(slider, min = 0.0, max = 1.5, step = 0.01)]
+    pub sway_speed: f32,
+    #[pane(slider, min = 0.0, max = 1.0, step = 0.01)]
+    pub sway_frequency: f32,
+    #[pane(slider, min = 0.0, max = 0.5, step = 0.005)]
     pub gust_strength: f32,
-    #[pane(slider, min = 0.0, max = 0.4, step = 0.01)]
+    #[pane(slider, min = 0.0, max = 0.5, step = 0.01)]
+    pub gust_speed: f32,
+    #[pane(slider, min = 0.0, max = 0.2, step = 0.005)]
     pub flutter_strength: f32,
+    #[pane(slider, min = 0.5, max = 8.0, step = 0.1)]
+    pub flutter_speed: f32,
+    #[pane(slider, min = -1.0, max = 1.0, step = 0.01)]
+    pub wind_direction_x: f32,
+    #[pane(slider, min = -1.0, max = 1.0, step = 0.01)]
+    pub wind_direction_z: f32,
     #[pane(monitor)]
     pub visible_blades: u32,
     #[pane(monitor)]
@@ -44,15 +62,26 @@ pub struct GrassExamplePane {
 
 impl Default for GrassExamplePane {
     fn default() -> Self {
+        let wind = GrassWind::default();
+        let archetype = GrassArchetype::default();
         Self {
             density_per_square_unit: 32.0,
+            blade_height_max: archetype.blade_height.y,
+            blade_width_max: archetype.blade_width.y,
+            cast_shadows: false,
             near_lod_distance: 18.0,
             mid_lod_distance: 42.0,
             far_lod_distance: 78.0,
             use_world_wind: true,
-            sway_strength: 0.24,
-            gust_strength: 0.14,
-            flutter_strength: 0.06,
+            sway_strength: wind.sway_strength,
+            sway_speed: wind.sway_speed,
+            sway_frequency: wind.sway_frequency,
+            gust_strength: wind.gust_strength,
+            gust_speed: wind.gust_speed,
+            flutter_strength: wind.flutter_strength,
+            flutter_speed: wind.flutter_speed,
+            wind_direction_x: wind.direction.x,
+            wind_direction_z: wind.direction.y,
             visible_blades: 0,
             active_chunks: 0,
             wind_zone_count: 0,
@@ -320,8 +349,14 @@ pub fn sync_overlay(
             diagnostics.visible_blades,
         ),
         format!(
-            "Interaction zones: {}  FPS: {:.1}",
-            diagnostics.interaction_zones, fps
+            "Interaction zones: {}  FPS: {:.1}  Wind: {}",
+            diagnostics.interaction_zones,
+            fps,
+            if diagnostics.using_world_wind {
+                "world"
+            } else {
+                "local"
+            },
         ),
     ];
     for patch in diagnostics.patches.iter().take(4) {
@@ -333,6 +368,8 @@ pub fn sync_overlay(
             patch.lod_blade_counts
         ));
     }
+    lines.push(String::new());
+    lines.push("Use the pane (top-right) to tweak wind, density, and LOD.".into());
 
     overlay.0 = lines.join("\n");
 }
@@ -349,14 +386,24 @@ fn sync_grass_pane(
 
     for mut config in &mut configs {
         config.density_per_square_unit = pane.density_per_square_unit;
+        config.cast_shadows = pane.cast_shadows;
         config.lod.bands[0].max_distance = pane.near_lod_distance;
         config.lod.bands[1].max_distance = pane.mid_lod_distance.max(pane.near_lod_distance + 1.0);
         config.lod.bands[2].max_distance = pane.far_lod_distance.max(pane.mid_lod_distance + 1.0);
+        for archetype in &mut config.archetypes {
+            archetype.blade_height.y = pane.blade_height_max;
+            archetype.blade_width.y = pane.blade_width_max;
+        }
     }
 
+    wind.direction = Vec2::new(pane.wind_direction_x, pane.wind_direction_z);
     wind.sway_strength = pane.sway_strength;
+    wind.sway_speed = pane.sway_speed;
+    wind.sway_frequency = pane.sway_frequency;
     wind.gust_strength = pane.gust_strength;
+    wind.gust_speed = pane.gust_speed;
     wind.flutter_strength = pane.flutter_strength;
+    wind.flutter_speed = pane.flutter_speed;
     bridge.enabled = pane.use_world_wind;
 }
 

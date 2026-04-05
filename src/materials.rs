@@ -28,8 +28,9 @@ pub struct GrassMaterialUniform {
     pub gust_frequency: f32,
     pub gust_speed: f32,
     pub flutter_strength: f32,
+    pub flutter_speed: f32,
     pub interaction_count: u32,
-    pub _padding: Vec3,
+    pub _padding: Vec2,
     pub zone_centers_radius: [Vec4; MAX_INTERACTION_ZONES],
     pub zone_behavior: [Vec4; MAX_INTERACTION_ZONES],
 }
@@ -61,8 +62,9 @@ impl GrassMaterialUniform {
             gust_frequency: wind.gust_frequency,
             gust_speed: wind.gust_speed,
             flutter_strength: wind.flutter_strength,
+            flutter_speed: wind.flutter_speed,
             interaction_count: zones.len().min(MAX_INTERACTION_ZONES) as u32,
-            _padding: Vec3::ZERO,
+            _padding: Vec2::ZERO,
             zone_centers_radius,
             zone_behavior,
         }

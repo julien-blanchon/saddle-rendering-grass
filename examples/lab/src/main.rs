@@ -30,13 +30,7 @@ struct StripWalker;
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(GrassWind {
-        direction: Vec2::new(0.92, 0.18),
-        sway_strength: 0.26,
-        gust_strength: 0.14,
-        flutter_strength: 0.06,
-        ..default()
-    });
+    app.insert_resource(GrassWind::calm());
     app.insert_resource(WinitSettings::continuous());
     app.add_plugins((
         DefaultPlugins.set(WindowPlugin {
@@ -220,10 +214,16 @@ fn setup(
 
 fn animate_wind(time: Res<Time>, mut wind: ResMut<GrassWind>) {
     let t = time.elapsed_secs();
-    wind.direction = Vec2::new(0.82 + t.sin() * 0.28, 0.18 + t.cos() * 0.24).normalize_or_zero();
-    wind.sway_strength = 0.24 + 0.08 * (t * 0.45).sin().abs();
-    wind.gust_strength = 0.10 + 0.09 * (t * 0.33).sin().abs();
-    wind.flutter_strength = 0.05 + 0.02 * (t * 0.8).cos().abs();
+    // Slow, organic direction drift — full revolution takes ~2 minutes.
+    wind.direction = Vec2::new(
+        0.82 + (t * 0.08).sin() * 0.18,
+        0.18 + (t * 0.06).cos() * 0.14,
+    )
+    .normalize_or_zero();
+    // Gentle sway modulation around the calm baseline.
+    wind.sway_strength = 0.10 + 0.04 * (t * 0.15).sin().abs();
+    wind.gust_strength = 0.04 + 0.03 * (t * 0.12).sin().abs();
+    wind.flutter_strength = 0.02 + 0.01 * (t * 0.25).cos().abs();
 }
 
 fn move_walker(time: Res<Time>, mut walker: Single<&mut Transform, With<StripWalker>>) {

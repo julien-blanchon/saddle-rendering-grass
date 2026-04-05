@@ -96,7 +96,8 @@ fn setup(
 | `GrassDensityMap` | Optional density texture plus channel / mapping selection |
 | `GrassSurface` | `Planar` or `Mesh(Entity)` surface selection |
 | `GrassLodConfig` / `GrassLodBand` | Distance bands that reduce blade density and blade segment count |
-| `GrassWind` | Global wind direction and layered sway / gust / flutter controls |
+| `GrassWind` | Global wind direction and layered sway / gust / flutter controls with named presets (`calm`, `breezy`, `windy`, `storm`) |
+| `GrassWindPreset` | Enum-based preset selection for quick wind configuration |
 | `GrassWindBridge` | Optional adapter that maps `saddle-world-wind` samples into the grass shader while preserving `GrassWind` as the standalone fallback profile |
 | `GrassInteractionZone` | Reusable bend / flatten impulse zone for moving actors or debug proxies |
 | `GrassDebugSettings` | Optional gizmo toggles for patch bounds, chunk bounds, LOD colors, and interaction radii |
@@ -113,7 +114,8 @@ fn setup(
 - Multi-archetype patches
 - Density maps sampled in patch UV or source-mesh UV space (`GrassDensityMapMode`)
 - Three-band LOD with density reduction, segment reduction, and Bevy `VisibilityRange`
-- Vertex-stage wind with macro sway, gust noise, per-blade flutter, and local interaction zones
+- Vertex-stage wind with macro sway, smooth value-noise gusts, per-blade flutter, and local interaction zones
+- Named wind presets (`calm`, `breezy`, `windy`, `storm`) for quick scene-appropriate tuning
 - Optional composition with `saddle-world-wind`: each generated chunk samples the shared wind field at runtime and falls back to `GrassWind` when the wind crate is not present
 - Message-triggered rebuilds and asset-change-triggered rebuilds
 - Diagnostics and BRP-friendly runtime inspection
@@ -175,7 +177,7 @@ uv run --project .codex/skills/bevy-brp/script brp extras shutdown
 ## Common Pitfalls
 
 - If a patch is invisible, check the source mesh or patch transform first. Mesh-surface patches use the source entity's mesh and transform as the scatter surface.
-- If grass looks too rigid, raise `GrassWind` sway / gust strength or lower the archetype stiffness range.
+- If grass looks too rigid, try `GrassWind::breezy()` or `GrassWind::windy()` instead of the default calm preset, or lower the archetype stiffness range.
 - If your project already uses `saddle-world-wind`, keep `GrassWind` as the simple fallback profile and tune `GrassWindBridge` instead of duplicating a second wind simulation.
 - If grass hovers above the ground, lower `normal_offset`. If it z-fights, raise it slightly.
 - If a patch rebuilds more often than expected, check whether some external system is mutating `GrassPatch`, `GrassConfig`, or the source mesh / density image every frame.

@@ -12,19 +12,104 @@ pub struct GrassWind {
     pub gust_frequency: f32,
     pub gust_speed: f32,
     pub flutter_strength: f32,
+    pub flutter_speed: f32,
 }
 
 impl Default for GrassWind {
     fn default() -> Self {
+        Self::calm()
+    }
+}
+
+impl GrassWind {
+    /// Very gentle wind — nearly still grass with subtle motion.
+    /// Suitable for sheltered meadows, indoor courtyards, or calm weather.
+    pub fn calm() -> Self {
         Self {
             direction: Vec2::new(0.85, 0.35),
-            sway_strength: 0.18,
-            sway_frequency: 0.35,
-            sway_speed: 0.85,
+            sway_strength: 0.08,
+            sway_frequency: 0.25,
+            sway_speed: 0.35,
+            gust_strength: 0.03,
+            gust_frequency: 0.12,
+            gust_speed: 0.08,
+            flutter_strength: 0.015,
+            flutter_speed: 2.5,
+        }
+    }
+
+    /// Light natural breeze — grass sways gently with occasional gusts.
+    /// Good default for open fields in fair weather.
+    pub fn breezy() -> Self {
+        Self {
+            direction: Vec2::new(0.85, 0.35),
+            sway_strength: 0.16,
+            sway_frequency: 0.32,
+            sway_speed: 0.55,
             gust_strength: 0.08,
-            gust_frequency: 0.18,
-            gust_speed: 0.2,
-            flutter_strength: 0.04,
+            gust_frequency: 0.16,
+            gust_speed: 0.14,
+            flutter_strength: 0.035,
+            flutter_speed: 3.2,
+        }
+    }
+
+    /// Moderate wind — noticeable directional sway with visible gusts.
+    /// Suitable for exposed hilltops or approaching weather.
+    pub fn windy() -> Self {
+        Self {
+            direction: Vec2::new(0.85, 0.35),
+            sway_strength: 0.28,
+            sway_frequency: 0.40,
+            sway_speed: 0.80,
+            gust_strength: 0.18,
+            gust_frequency: 0.22,
+            gust_speed: 0.22,
+            flutter_strength: 0.07,
+            flutter_speed: 4.0,
+        }
+    }
+
+    /// Strong turbulent wind — heavy bending and rapid gusts.
+    /// Use for storms, high altitudes, or dramatic scenes.
+    pub fn storm() -> Self {
+        Self {
+            direction: Vec2::new(0.85, 0.35),
+            sway_strength: 0.45,
+            sway_frequency: 0.50,
+            sway_speed: 1.20,
+            gust_strength: 0.35,
+            gust_frequency: 0.30,
+            gust_speed: 0.38,
+            flutter_strength: 0.12,
+            flutter_speed: 5.5,
+        }
+    }
+}
+
+/// Named presets for quick wind configuration.
+///
+/// Each variant maps to one of the `GrassWind` constructors.
+#[derive(Clone, Copy, Debug, Default, Reflect, PartialEq, Eq)]
+pub enum GrassWindPreset {
+    /// Nearly still — sheltered courtyards, calm weather.
+    #[default]
+    Calm,
+    /// Light natural breeze — open fields in fair weather.
+    Breezy,
+    /// Noticeable directional sway — hilltops, approaching weather.
+    Windy,
+    /// Heavy bending and rapid gusts — storms, high altitudes.
+    Storm,
+}
+
+impl From<GrassWindPreset> for GrassWind {
+    fn from(preset: GrassWindPreset) -> Self {
+        match preset {
+            GrassWindPreset::Calm => GrassWind::calm(),
+            GrassWindPreset::Breezy => GrassWind::breezy(),
+            GrassWindPreset::Windy => GrassWind::windy(),
+            GrassWindPreset::Storm => GrassWind::storm(),
         }
     }
 }
@@ -59,6 +144,8 @@ impl GrassWind {
                 + sample.speed.max(0.0) * bridge.gust_speed_from_speed.max(0.0),
             flutter_strength: self.flutter_strength.max(0.0)
                 + sample.flutter_factor.max(0.0) * bridge.flutter_strength_scale.max(0.0),
+            flutter_speed: self.flutter_speed.max(0.0)
+                + sample.speed.max(0.0) * bridge.flutter_speed_from_speed.max(0.0),
         }
     }
 }
@@ -75,6 +162,7 @@ pub struct GrassWindBridge {
     pub gust_frequency_from_turbulence: f32,
     pub gust_speed_from_speed: f32,
     pub flutter_strength_scale: f32,
+    pub flutter_speed_from_speed: f32,
 }
 
 impl Default for GrassWindBridge {
@@ -89,6 +177,7 @@ impl Default for GrassWindBridge {
             gust_frequency_from_turbulence: 0.45,
             gust_speed_from_speed: 0.08,
             flutter_strength_scale: 0.2,
+            flutter_speed_from_speed: 0.15,
         }
     }
 }

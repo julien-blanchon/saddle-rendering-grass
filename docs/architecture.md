@@ -116,9 +116,11 @@ Because visible counts come from `ViewVisibility`, they represent the live rende
 The vertex shader combines four motion layers:
 
 1. **global sway**: low-frequency directional wind from `GrassWind.direction`, `sway_frequency`, and `sway_speed`
-2. **gust noise**: hashed world-space noise modulated by `gust_frequency` and `gust_speed`
-3. **per-blade flutter**: high-frequency local motion with phase variation
+2. **gust noise**: smooth value-noise rolling across the field, modulated by `gust_frequency` and `gust_speed`. Uses bilinear-interpolated hash noise to produce continuous, non-flickering gust waves.
+3. **per-blade flutter**: high-frequency local motion with phase variation and configurable `flutter_speed`
 4. **local interaction zones**: bend / flatten offsets from nearby `GrassInteractionZone`s
+
+`GrassWind` defaults to `calm()` — nearly still grass. Named presets (`calm`, `breezy`, `windy`, `storm`) provide increasing intensity, and `GrassWindPreset` gives an enum-based interface for the same.
 
 If `saddle-world-wind` is active, those authored `GrassWind` values become the baseline profile and the runtime samples the shared wind field at each chunk center before updating the material uniform.
 

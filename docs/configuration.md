@@ -83,16 +83,28 @@ This document lists the public tuning surface for `grass`. Defaults are the curr
 
 ## `GrassWind`
 
-| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+The default `GrassWind` is `GrassWind::calm()`. Use the named presets for quick configuration:
+
+| Preset | Sway | Gusts | Flutter | Suggested scene |
+|--------|------|-------|---------|-----------------|
+| `GrassWind::calm()` | very subtle | barely perceptible | minimal | sheltered meadows, calm weather |
+| `GrassWind::breezy()` | gentle | occasional | light | open fields in fair weather |
+| `GrassWind::windy()` | noticeable | visible waves | moderate | hilltops, approaching weather |
+| `GrassWind::storm()` | heavy bending | rapid, strong | aggressive | storms, high altitudes |
+
+You can also use `GrassWindPreset` for enum-based selection: `GrassWind::from(GrassWindPreset::Breezy)`.
+
+| Field | Type | Default (calm) | Valid range / meaning | Visual effect | Perf impact |
 |------|------|---------|------------------------|---------------|-------------|
 | `direction` | `Vec2` | `(0.85, 0.35)` | any vector; normalized internally | world-space wind direction | negligible |
-| `sway_strength` | `f32` | `0.18` | `>= 0` | overall low-frequency bend amplitude | negligible |
-| `sway_frequency` | `f32` | `0.35` | `>= 0` | wavelength of macro sway across the field | negligible |
-| `sway_speed` | `f32` | `0.85` | `>= 0` | time speed of macro sway | negligible |
-| `gust_strength` | `f32` | `0.08` | `>= 0` | local noisy wind bursts | negligible |
-| `gust_frequency` | `f32` | `0.18` | `>= 0` | spatial frequency of gust noise | negligible |
-| `gust_speed` | `f32` | `0.2` | `>= 0` | temporal speed of gust evolution | negligible |
-| `flutter_strength` | `f32` | `0.04` | `>= 0` | small high-frequency blade flutter | negligible |
+| `sway_strength` | `f32` | `0.08` | `>= 0` | overall low-frequency bend amplitude | negligible |
+| `sway_frequency` | `f32` | `0.25` | `>= 0` | wavelength of macro sway across the field | negligible |
+| `sway_speed` | `f32` | `0.35` | `>= 0` | time speed of macro sway | negligible |
+| `gust_strength` | `f32` | `0.03` | `>= 0` | smooth rolling wind bursts | negligible |
+| `gust_frequency` | `f32` | `0.12` | `>= 0` | spatial frequency of gust noise | negligible |
+| `gust_speed` | `f32` | `0.08` | `>= 0` | temporal speed of gust evolution | negligible |
+| `flutter_strength` | `f32` | `0.015` | `>= 0` | small high-frequency blade flutter | negligible |
+| `flutter_speed` | `f32` | `2.5` | `> 0` | frequency of per-blade flutter oscillation | negligible |
 
 Updating `GrassWind` does not rebuild patches. It only refreshes the shared material uniform.
 
@@ -111,6 +123,7 @@ Updating `GrassWind` does not rebuild patches. It only refreshes the shared mate
 | `gust_frequency_from_turbulence` | `f32` | `0.45` | `>= 0` | increases gust noise detail under turbulent shared wind | negligible |
 | `gust_speed_from_speed` | `f32` | `0.08` | `>= 0` | accelerates gust evolution under faster shared wind | negligible |
 | `flutter_strength_scale` | `f32` | `0.2` | `>= 0` | maps sampled flutter detail into high-frequency blade motion | negligible |
+| `flutter_speed_from_speed` | `f32` | `0.15` | `>= 0` | adds shared wind speed into flutter oscillation rate | negligible |
 
 ## `GrassInteractionZone`
 

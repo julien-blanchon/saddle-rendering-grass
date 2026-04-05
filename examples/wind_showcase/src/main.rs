@@ -13,10 +13,7 @@ fn main() {
     App::new()
         .insert_resource(GrassWind {
             direction: Vec2::new(1.0, 0.2),
-            sway_strength: 0.34,
-            gust_strength: 0.2,
-            flutter_strength: 0.09,
-            ..default()
+            ..GrassWind::breezy()
         })
         .insert_resource(GrassWindBridge {
             sample_height_offset: 0.55,
@@ -134,12 +131,15 @@ fn animate_gust_lane(
     mut query: Query<&mut Transform, With<CourtyardGustLane>>,
 ) {
     let t = time.elapsed_secs();
-    wind.direction = Vec2::new(0.8 + t.sin() * 0.2, 0.15 + t.cos() * 0.25).normalize_or_zero();
-    wind.sway_strength = 0.28 + 0.08 * (t * 0.5).sin().abs();
-    wind.gust_strength = 0.12 + 0.1 * (t * 0.35).sin().abs();
+    // Gentle direction drift — organic, not jittery.
+    wind.direction =
+        Vec2::new(0.8 + (t * 0.1).sin() * 0.15, 0.15 + (t * 0.08).cos() * 0.18).normalize_or_zero();
+    // Modulate around breezy baseline with slow oscillation.
+    wind.sway_strength = 0.16 + 0.06 * (t * 0.18).sin().abs();
+    wind.gust_strength = 0.08 + 0.05 * (t * 0.12).sin().abs();
 
     for mut transform in &mut query {
-        transform.translation.x = (t * 0.42).sin() * 4.5;
-        transform.rotation = Quat::from_rotation_y((t * 0.18).sin() * 0.22);
+        transform.translation.x = (t * 0.15).sin() * 4.5;
+        transform.rotation = Quat::from_rotation_y((t * 0.08).sin() * 0.18);
     }
 }
