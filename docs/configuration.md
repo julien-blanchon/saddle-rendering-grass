@@ -53,20 +53,20 @@ This document lists the public tuning surface for `grass`. Defaults are the curr
 
 | Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
 |------|------|---------|------------------------|---------------|-------------|
-| `debug_name` | `String` | `"Meadow"` | any label | shows up in chunk names / diagnostics | none |
+| `debug_name` | `String` | `"Base"` | any label | shows up in chunk names / diagnostics | none |
 | `weight` | `f32` | `1.0` | `> 0` to participate | relative frequency when multiple archetypes mix | more archetypes mean more generated chunk variants |
-| `blade_height` | `Vec2` | `(0.65, 1.25)` | min/max > 0 | controls height variation | taller blades can read denser but do not change count |
-| `blade_width` | `Vec2` | `(0.025, 0.055)` | min/max > 0 | controls blade thickness | wider blades can improve readability without more instances |
-| `forward_curve` | `Vec2` | `(0.08, 0.28)` | small positive range typical | adds forward arc / droop | negligible |
-| `lean` | `Vec2` | `(-0.18, 0.18)` | signed range | biases blades to lean left / right | negligible |
-| `stiffness` | `Vec2` | `(0.85, 1.2)` | `> 0` | lower values bend more in wind | negligible |
-| `interaction_strength` | `Vec2` | `(0.8, 1.2)` | `>= 0` | lower values resist trampling; higher values react more | negligible |
-| `root_color` | `Color` | dark green | any color | base tint at blade root | no runtime cost |
-| `tip_color` | `Color` | lighter green | any color | gradient tint at blade tip | no runtime cost |
-| `color_variation` | `f32` | `0.16` | `>= 0`, usually `0..0.4` | random hue / value jitter between blades | negligible |
+| `blade_height` | `Vec2` | `(0.55, 1.0)` | min/max > 0 | controls height variation | taller blades can read denser but do not change count |
+| `blade_width` | `Vec2` | `(0.02, 0.045)` | min/max > 0 | controls blade thickness | wider blades can improve readability without more instances |
+| `forward_curve` | `Vec2` | `(0.04, 0.18)` | small positive range typical | adds forward arc / droop | negligible |
+| `lean` | `Vec2` | `(-0.12, 0.12)` | signed range | biases blades to lean left / right | negligible |
+| `stiffness` | `Vec2` | `(0.9, 1.15)` | `> 0` | lower values bend more in wind | negligible |
+| `interaction_strength` | `Vec2` | `(0.85, 1.15)` | `>= 0` | lower values resist trampling; higher values react more | negligible |
+| `root_color` | `Color` | desaturated brown-grey | any color | base tint at blade root | no runtime cost |
+| `tip_color` | `Color` | desaturated straw-grey | any color | gradient tint at blade tip | no runtime cost |
+| `color_variation` | `f32` | `0.08` | `>= 0`, usually `0..0.4` | random hue / value jitter between blades | negligible |
 | `roughness` | `f32` | `0.9` | `0.089..=1.0` practical | controls specular sharpness | no geometry cost |
 | `reflectance` | `f32` | `0.16` | `0..=1` | broad surface energy response | no geometry cost |
-| `diffuse_transmission` | `f32` | `0.2` | `0..=1` | brighter backlit blades | lighting cost only |
+| `diffuse_transmission` | `f32` | `0.18` | `0..=1` | brighter backlit blades | lighting cost only |
 
 ## `GrassConfig`
 
@@ -78,32 +78,23 @@ This document lists the public tuning surface for `grass`. Defaults are the curr
 | `normal_offset` | `f32` | `0.005` | small positive value | lifts blades slightly off the surface to avoid z-fighting | negligible |
 | `density_map` | `Option<GrassDensityMap>` | `None` | optional density texture | carves empty / dense areas | rebuild-time texture sampling only |
 | `lod` | `GrassLodConfig` | default 3-band config | authored LOD band set | near/far density and complexity balance | major far-field cost control |
-| `archetypes` | `Vec<GrassArchetype>` | one default meadow archetype | at least one enabled archetype recommended | mixes turf / meadow / flower variants in one patch | more archetypes multiply generated chunk meshes |
+| `archetypes` | `Vec<GrassArchetype>` | one neutral base archetype | at least one enabled archetype recommended | mixes turf / meadow / flower variants in one patch | more archetypes multiply generated chunk meshes |
 | `cast_shadows` | `bool` | `false` | enable only when needed | makes grass participate in shadow casting | can become very expensive on dense patches |
 
 ## `GrassWind`
 
-The default `GrassWind` is `GrassWind::calm()`. Use the named presets for quick configuration:
+`GrassWind` is an explicit resource. The crate default is directionless and motionless, so callers insert or mutate it with the exact profile they want. The repository examples keep optional wind helpers in `examples/common/src/presets.rs`.
 
-| Preset | Sway | Gusts | Flutter | Suggested scene |
-|--------|------|-------|---------|-----------------|
-| `GrassWind::calm()` | very subtle | barely perceptible | minimal | sheltered meadows, calm weather |
-| `GrassWind::breezy()` | gentle | occasional | light | open fields in fair weather |
-| `GrassWind::windy()` | noticeable | visible waves | moderate | hilltops, approaching weather |
-| `GrassWind::storm()` | heavy bending | rapid, strong | aggressive | storms, high altitudes |
-
-You can also use `GrassWindPreset` for enum-based selection: `GrassWind::from(GrassWindPreset::Breezy)`.
-
-| Field | Type | Default (calm) | Valid range / meaning | Visual effect | Perf impact |
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
 |------|------|---------|------------------------|---------------|-------------|
-| `direction` | `Vec2` | `(0.85, 0.35)` | any vector; normalized internally | world-space wind direction | negligible |
-| `sway_strength` | `f32` | `0.08` | `>= 0` | overall low-frequency bend amplitude | negligible |
+| `direction` | `Vec2` | `Vec2::ZERO` | any vector; normalized internally | world-space wind direction | negligible |
+| `sway_strength` | `f32` | `0.0` | `>= 0` | overall low-frequency bend amplitude | negligible |
 | `sway_frequency` | `f32` | `0.25` | `>= 0` | wavelength of macro sway across the field | negligible |
 | `sway_speed` | `f32` | `0.35` | `>= 0` | time speed of macro sway | negligible |
-| `gust_strength` | `f32` | `0.03` | `>= 0` | smooth rolling wind bursts | negligible |
+| `gust_strength` | `f32` | `0.0` | `>= 0` | smooth rolling wind bursts | negligible |
 | `gust_frequency` | `f32` | `0.12` | `>= 0` | spatial frequency of gust noise | negligible |
 | `gust_speed` | `f32` | `0.08` | `>= 0` | temporal speed of gust evolution | negligible |
-| `flutter_strength` | `f32` | `0.015` | `>= 0` | small high-frequency blade flutter | negligible |
+| `flutter_strength` | `f32` | `0.0` | `>= 0` | small high-frequency blade flutter | negligible |
 | `flutter_speed` | `f32` | `2.5` | `> 0` | frequency of per-blade flutter oscillation | negligible |
 
 Updating `GrassWind` does not rebuild patches. It only refreshes the shared material uniform.

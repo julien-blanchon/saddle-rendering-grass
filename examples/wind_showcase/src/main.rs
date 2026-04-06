@@ -11,10 +11,7 @@ struct CourtyardGustLane;
 
 fn main() {
     App::new()
-        .insert_resource(GrassWind {
-            direction: Vec2::new(1.0, 0.2),
-            ..GrassWind::breezy()
-        })
+        .insert_resource(common::presets::wind::breezy(Vec2::new(1.0, 0.2)))
         .insert_resource(GrassWindBridge {
             sample_height_offset: 0.55,
             ..default()
@@ -57,12 +54,12 @@ fn setup(
         },
         GrassConfig {
             density_per_square_unit: 26.0,
-            archetypes: vec![common::meadow_archetype()],
+            archetypes: vec![common::presets::archetypes::meadow()],
             ..default()
         },
     );
 
-    let mut flexible = common::meadow_archetype();
+    let mut flexible = common::presets::archetypes::meadow();
     flexible.debug_name = "Flexible".into();
     flexible.stiffness = Vec2::new(0.45, 0.7);
     flexible.lean = Vec2::new(-0.28, 0.26);
@@ -83,7 +80,7 @@ fn setup(
         },
     );
 
-    let mut stiff = common::turf_archetype();
+    let mut stiff = common::presets::archetypes::turf();
     stiff.debug_name = "Stiff Turf".into();
     stiff.stiffness = Vec2::new(1.1, 1.5);
     common::spawn_patch(

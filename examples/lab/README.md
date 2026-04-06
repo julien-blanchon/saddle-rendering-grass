@@ -5,22 +5,22 @@ Crate-local verification app for [`grass`](../..). It keeps the shared crate run
 ## Run
 
 ```bash
-cargo run -p grass_lab
+cd examples && cargo run -p grass_lab
 ```
 
 ## Run E2E scenarios
 
 ```bash
-cargo run -p grass_lab --features e2e -- grass_smoke
-cargo run -p grass_lab --features e2e -- grass_wind_showcase
-cargo run -p grass_lab --features e2e -- grass_lod_showcase
-cargo run -p grass_lab --features e2e -- grass_interaction_strip
+cd examples && cargo run -p grass_lab --features e2e -- grass_smoke
+cd examples && cargo run -p grass_lab --features e2e -- grass_wind_showcase
+cd examples && cargo run -p grass_lab --features e2e -- grass_lod_showcase
+cd examples && cargo run -p grass_lab --features e2e -- grass_interaction_strip
 ```
 
 ## BRP / live inspection
 
 ```bash
-cargo run -p grass_lab
+cd examples && cargo run -p grass_lab
 uv run --project .codex/skills/bevy-brp/script brp resource list | rg GrassDiagnostics
 uv run --project .codex/skills/bevy-brp/script brp resource get grass::resources::GrassDiagnostics
 uv run --project .codex/skills/bevy-brp/script brp world query bevy_ecs::name::Name

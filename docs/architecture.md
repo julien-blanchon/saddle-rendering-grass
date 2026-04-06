@@ -120,7 +120,7 @@ The vertex shader combines four motion layers:
 3. **per-blade flutter**: high-frequency local motion with phase variation and configurable `flutter_speed`
 4. **local interaction zones**: bend / flatten offsets from nearby `GrassInteractionZone`s
 
-`GrassWind` defaults to `calm()` — nearly still grass. Named presets (`calm`, `breezy`, `windy`, `storm`) provide increasing intensity, and `GrassWindPreset` gives an enum-based interface for the same.
+`GrassWind` defaults to neutral zero-motion data with no baked-in direction bias. Scene-specific meadow and wind profiles live in the repository's example-side preset module so the runtime resource stays plain and explicit.
 
 If `saddle-world-wind` is active, those authored `GrassWind` values become the baseline profile and the runtime samples the shared wind field at each chunk center before updating the material uniform.
 

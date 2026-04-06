@@ -1,3 +1,6 @@
+pub mod presets;
+
+use bevy::app::PostStartup;
 use bevy::asset::RenderAssetUsages;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -100,6 +103,7 @@ impl Plugin for GrassExampleUiPlugin {
                 PanePlugin,
             ))
             .register_pane::<GrassExamplePane>()
+            .add_systems(PostStartup, initialize_grass_pane)
             .add_systems(Update, (sync_grass_pane, sync_grass_pane_monitors));
     }
 }
@@ -187,54 +191,6 @@ pub fn spawn_ramp_surface(
             },
         ))
         .id()
-}
-
-pub fn meadow_archetype() -> GrassArchetype {
-    GrassArchetype {
-        debug_name: "Meadow".into(),
-        blade_height: Vec2::new(0.75, 1.35),
-        blade_width: Vec2::new(0.025, 0.06),
-        forward_curve: Vec2::new(0.12, 0.34),
-        lean: Vec2::new(-0.22, 0.18),
-        root_color: Color::srgb(0.15, 0.29, 0.10),
-        tip_color: Color::srgb(0.52, 0.84, 0.28),
-        color_variation: 0.18,
-        diffuse_transmission: 0.24,
-        ..default()
-    }
-}
-
-pub fn turf_archetype() -> GrassArchetype {
-    GrassArchetype {
-        debug_name: "Turf".into(),
-        weight: 1.0,
-        blade_height: Vec2::new(0.2, 0.42),
-        blade_width: Vec2::new(0.018, 0.035),
-        forward_curve: Vec2::new(0.02, 0.08),
-        lean: Vec2::new(-0.06, 0.06),
-        root_color: Color::srgb(0.16, 0.36, 0.12),
-        tip_color: Color::srgb(0.35, 0.72, 0.25),
-        color_variation: 0.08,
-        stiffness: Vec2::new(0.6, 0.95),
-        interaction_strength: Vec2::new(0.5, 0.8),
-        ..default()
-    }
-}
-
-pub fn flower_archetype() -> GrassArchetype {
-    GrassArchetype {
-        debug_name: "Wildflower".into(),
-        weight: 0.22,
-        blade_height: Vec2::new(0.35, 0.72),
-        blade_width: Vec2::new(0.03, 0.07),
-        forward_curve: Vec2::new(0.02, 0.16),
-        lean: Vec2::new(-0.1, 0.1),
-        root_color: Color::srgb(0.24, 0.33, 0.12),
-        tip_color: Color::srgb(0.93, 0.72, 0.46),
-        color_variation: 0.28,
-        stiffness: Vec2::new(0.75, 1.05),
-        ..default()
-    }
 }
 
 pub fn radial_density_map(images: &mut Assets<Image>, size: u32) -> Handle<Image> {
@@ -372,6 +328,37 @@ pub fn sync_overlay(
     lines.push("Use the pane (top-right) to tweak wind, density, and LOD.".into());
 
     overlay.0 = lines.join("\n");
+}
+
+fn initialize_grass_pane(
+    mut pane: ResMut<GrassExamplePane>,
+    wind: Res<GrassWind>,
+    bridge: Res<GrassWindBridge>,
+    configs: Query<&GrassConfig>,
+) {
+    if let Some(config) = configs.iter().next() {
+        pane.density_per_square_unit = config.density_per_square_unit;
+        pane.cast_shadows = config.cast_shadows;
+        pane.near_lod_distance = config.lod.bands[0].max_distance;
+        pane.mid_lod_distance = config.lod.bands[1].max_distance;
+        pane.far_lod_distance = config.lod.bands[2].max_distance;
+
+        if let Some(archetype) = config.archetypes.first() {
+            pane.blade_height_max = archetype.blade_height.y;
+            pane.blade_width_max = archetype.blade_width.y;
+        }
+    }
+
+    pane.use_world_wind = bridge.enabled;
+    pane.sway_strength = wind.sway_strength;
+    pane.sway_speed = wind.sway_speed;
+    pane.sway_frequency = wind.sway_frequency;
+    pane.gust_strength = wind.gust_strength;
+    pane.gust_speed = wind.gust_speed;
+    pane.flutter_strength = wind.flutter_strength;
+    pane.flutter_speed = wind.flutter_speed;
+    pane.wind_direction_x = wind.direction.x;
+    pane.wind_direction_z = wind.direction.y;
 }
 
 fn sync_grass_pane(

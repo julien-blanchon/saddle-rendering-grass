@@ -8,6 +8,7 @@ struct OrbitCamera;
 
 fn main() {
     App::new()
+        .insert_resource(common::presets::wind::breezy(Vec2::new(0.88, 0.32)))
         .add_plugins((
             common::default_plugins("Grass Example - Stress Field"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
@@ -49,7 +50,10 @@ fn setup(
                 },
                 GrassConfig {
                     density_per_square_unit: 48.0,
-                    archetypes: vec![common::meadow_archetype(), common::flower_archetype()],
+                    archetypes: vec![
+                        common::presets::archetypes::meadow(),
+                        common::presets::archetypes::wildflower(),
+                    ],
                     ..default()
                 },
             );

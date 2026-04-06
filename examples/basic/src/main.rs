@@ -5,6 +5,7 @@ use grass::{GrassConfig, GrassPatch, GrassPlugin, GrassSurface};
 
 fn main() {
     App::new()
+        .insert_resource(common::presets::wind::breezy(Vec2::new(0.85, 0.35)))
         .add_plugins((
             common::default_plugins("Grass Example - Basic"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
@@ -50,7 +51,7 @@ fn setup(
                 image: density_map,
                 ..default()
             }),
-            archetypes: vec![common::turf_archetype()],
+            archetypes: vec![common::presets::archetypes::turf()],
             ..default()
         },
     );
@@ -69,7 +70,10 @@ fn setup(
         },
         GrassConfig {
             density_per_square_unit: 24.0,
-            archetypes: vec![common::meadow_archetype(), common::flower_archetype()],
+            archetypes: vec![
+                common::presets::archetypes::meadow(),
+                common::presets::archetypes::wildflower(),
+            ],
             ..default()
         },
     );

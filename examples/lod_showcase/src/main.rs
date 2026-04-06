@@ -8,6 +8,7 @@ struct DollyCamera;
 
 fn main() {
     App::new()
+        .insert_resource(common::presets::wind::breezy(Vec2::new(0.9, 0.25)))
         .add_plugins((
             common::default_plugins("Grass Example - LOD"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
@@ -52,7 +53,10 @@ fn setup(
                 image: density_map,
                 ..default()
             }),
-            archetypes: vec![common::meadow_archetype(), common::flower_archetype()],
+            archetypes: vec![
+                common::presets::archetypes::meadow(),
+                common::presets::archetypes::wildflower(),
+            ],
             ..default()
         },
     );

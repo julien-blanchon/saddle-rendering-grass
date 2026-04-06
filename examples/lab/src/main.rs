@@ -30,7 +30,7 @@ struct StripWalker;
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(GrassWind::calm());
+    app.insert_resource(common::presets::wind::calm(Vec2::new(0.82, 0.18)));
     app.insert_resource(WinitSettings::continuous());
     app.add_plugins((
         DefaultPlugins.set(WindowPlugin {
@@ -116,7 +116,7 @@ fn setup(
                 image: radial_density,
                 ..default()
             }),
-            archetypes: vec![common::turf_archetype()],
+            archetypes: vec![common::presets::archetypes::turf()],
             ..default()
         },
     );
@@ -140,7 +140,10 @@ fn setup(
                 image: checker_density,
                 ..default()
             }),
-            archetypes: vec![common::meadow_archetype(), common::flower_archetype()],
+            archetypes: vec![
+                common::presets::archetypes::meadow(),
+                common::presets::archetypes::wildflower(),
+            ],
             ..default()
         },
     );
@@ -159,7 +162,10 @@ fn setup(
         },
         GrassConfig {
             density_per_square_unit: 26.0 * density_scale,
-            archetypes: vec![common::meadow_archetype(), common::flower_archetype()],
+            archetypes: vec![
+                common::presets::archetypes::meadow(),
+                common::presets::archetypes::wildflower(),
+            ],
             ..default()
         },
     );
@@ -176,7 +182,7 @@ fn setup(
         },
         GrassConfig {
             density_per_square_unit: 48.0 * density_scale,
-            archetypes: vec![common::meadow_archetype()],
+            archetypes: vec![common::presets::archetypes::meadow()],
             ..default()
         },
     );

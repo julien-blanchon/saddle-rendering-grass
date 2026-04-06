@@ -25,7 +25,6 @@ pub use config::{
 pub use messages::GrassRebuildRequest;
 pub use resources::{
     GrassDebugSettings, GrassDiagnostics, GrassPatchDiagnostics, GrassWind, GrassWindBridge,
-    GrassWindPreset,
 };
 
 pub use materials::{ATTRIBUTE_GRASS_ROOT_PHASE, ATTRIBUTE_GRASS_VARIATION, MAX_INTERACTION_ZONES};
@@ -113,7 +112,6 @@ impl Plugin for GrassPlugin {
             .register_type::<GrassTextureChannel>()
             .register_type::<GrassWind>()
             .register_type::<GrassWindBridge>()
-            .register_type::<GrassWindPreset>()
             .add_systems(self.activate_schedule, systems::activate_runtime)
             .add_systems(self.deactivate_schedule, systems::deactivate_runtime)
             .configure_sets(

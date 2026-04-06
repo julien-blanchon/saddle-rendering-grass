@@ -44,34 +44,22 @@ fn world_wind_bridge_scales_runtime_response_from_sample_metrics() {
 }
 
 #[test]
-fn wind_presets_increase_in_intensity() {
-    let calm = GrassWind::calm();
-    let breezy = GrassWind::breezy();
-    let windy = GrassWind::windy();
-    let storm = GrassWind::storm();
+fn default_wind_is_neutral_and_directionless() {
+    let default_wind = GrassWind::default();
 
-    assert!(calm.sway_strength < breezy.sway_strength);
-    assert!(breezy.sway_strength < windy.sway_strength);
-    assert!(windy.sway_strength < storm.sway_strength);
-
-    assert!(calm.gust_strength < breezy.gust_strength);
-    assert!(breezy.gust_strength < windy.gust_strength);
-    assert!(windy.gust_strength < storm.gust_strength);
-
-    assert!(calm.sway_speed < breezy.sway_speed);
-    assert!(breezy.sway_speed < windy.sway_speed);
-    assert!(windy.sway_speed < storm.sway_speed);
-
-    assert!(calm.flutter_speed < breezy.flutter_speed);
-    assert!(breezy.flutter_speed < windy.flutter_speed);
-    assert!(windy.flutter_speed < storm.flutter_speed);
+    assert_eq!(default_wind.direction, Vec2::ZERO);
+    assert_eq!(default_wind.sway_strength, 0.0);
+    assert_eq!(default_wind.gust_strength, 0.0);
+    assert_eq!(default_wind.flutter_strength, 0.0);
 }
 
 #[test]
-fn default_wind_is_calm() {
+fn default_wind_preserves_editable_time_scales() {
     let default_wind = GrassWind::default();
-    let calm = GrassWind::calm();
-    assert_eq!(default_wind.sway_strength, calm.sway_strength);
-    assert_eq!(default_wind.sway_speed, calm.sway_speed);
-    assert_eq!(default_wind.flutter_speed, calm.flutter_speed);
+
+    assert_eq!(default_wind.sway_frequency, 0.25);
+    assert_eq!(default_wind.sway_speed, 0.35);
+    assert_eq!(default_wind.gust_frequency, 0.12);
+    assert_eq!(default_wind.gust_speed, 0.08);
+    assert_eq!(default_wind.flutter_speed, 2.5);
 }

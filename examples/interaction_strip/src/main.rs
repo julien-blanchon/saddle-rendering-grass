@@ -8,6 +8,7 @@ struct StripWalker;
 
 fn main() {
     App::new()
+        .insert_resource(common::presets::wind::breezy(Vec2::new(0.8, 0.3)))
         .add_plugins((
             common::default_plugins("Grass Example - Interaction Strip"),
             bevy::diagnostic::FrameTimeDiagnosticsPlugin::default(),
@@ -45,7 +46,7 @@ fn setup(
         },
         GrassConfig {
             density_per_square_unit: 46.0,
-            archetypes: vec![common::meadow_archetype()],
+            archetypes: vec![common::presets::archetypes::meadow()],
             ..default()
         },
     );

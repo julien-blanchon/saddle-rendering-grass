@@ -133,20 +133,20 @@ pub struct GrassArchetype {
 impl Default for GrassArchetype {
     fn default() -> Self {
         Self {
-            debug_name: "Meadow".into(),
+            debug_name: "Base".into(),
             weight: 1.0,
-            blade_height: Vec2::new(0.65, 1.25),
-            blade_width: Vec2::new(0.025, 0.055),
-            forward_curve: Vec2::new(0.08, 0.28),
-            lean: Vec2::new(-0.18, 0.18),
-            stiffness: Vec2::new(0.85, 1.2),
-            interaction_strength: Vec2::new(0.8, 1.2),
-            root_color: Color::srgb(0.16, 0.33, 0.10),
-            tip_color: Color::srgb(0.58, 0.83, 0.30),
-            color_variation: 0.16,
+            blade_height: Vec2::new(0.55, 1.0),
+            blade_width: Vec2::new(0.02, 0.045),
+            forward_curve: Vec2::new(0.04, 0.18),
+            lean: Vec2::new(-0.12, 0.12),
+            stiffness: Vec2::new(0.9, 1.15),
+            interaction_strength: Vec2::new(0.85, 1.15),
+            root_color: Color::srgb(0.36, 0.34, 0.30),
+            tip_color: Color::srgb(0.63, 0.60, 0.54),
+            color_variation: 0.08,
             roughness: 0.9,
             reflectance: 0.16,
-            diffuse_transmission: 0.2,
+            diffuse_transmission: 0.18,
         }
     }
 }
@@ -178,3 +178,7 @@ impl Default for GrassConfig {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "config_tests.rs"]
+mod tests;

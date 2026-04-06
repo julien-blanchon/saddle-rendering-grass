@@ -16,10 +16,21 @@ This is intentionally not a fully GPU-driven foliage system. The crate prioritiz
 
 ```rust,no_run
 use bevy::prelude::*;
-use grass::{GrassConfig, GrassPatch, GrassPatchBundle, GrassPlugin};
+use grass::{GrassConfig, GrassPatch, GrassPatchBundle, GrassPlugin, GrassWind};
 
 fn main() {
     App::new()
+        .insert_resource(GrassWind {
+            direction: Vec2::new(0.95, 0.30).normalize_or_zero(),
+            sway_strength: 0.16,
+            sway_frequency: 0.32,
+            sway_speed: 0.55,
+            gust_strength: 0.08,
+            gust_frequency: 0.16,
+            gust_speed: 0.14,
+            flutter_strength: 0.035,
+            flutter_speed: 3.2,
+        })
         .add_plugins(DefaultPlugins)
         .add_plugins(GrassPlugin::default())
         .add_systems(Startup, setup)
@@ -55,7 +66,7 @@ fn setup(
 
     commands.spawn((
         GrassPatchBundle {
-            name: Name::new("Starter Meadow"),
+            name: Name::new("Starter Patch"),
             patch: GrassPatch {
                 half_size: Vec2::new(8.0, 12.0),
                 density_scale: 1.0,
@@ -71,6 +82,8 @@ fn setup(
     ));
 }
 ```
+
+The crate defaults are intentionally neutral: `GrassConfig::default()` uses a single base archetype, and `GrassWind::default()` carries no motion until you insert or edit the resource. The repository's meadow / turf / wind profile helpers live in [`examples/common/src/presets.rs`](examples/common/src/presets.rs).
 
 ## Required Scene Setup
 
@@ -96,8 +109,7 @@ fn setup(
 | `GrassDensityMap` | Optional density texture plus channel / mapping selection |
 | `GrassSurface` | `Planar` or `Mesh(Entity)` surface selection |
 | `GrassLodConfig` / `GrassLodBand` | Distance bands that reduce blade density and blade segment count |
-| `GrassWind` | Global wind direction and layered sway / gust / flutter controls with named presets (`calm`, `breezy`, `windy`, `storm`) |
-| `GrassWindPreset` | Enum-based preset selection for quick wind configuration |
+| `GrassWind` | Explicit global wind direction and layered sway / gust / flutter controls; defaults to neutral zero-motion data |
 | `GrassWindBridge` | Optional adapter that maps `saddle-world-wind` samples into the grass shader while preserving `GrassWind` as the standalone fallback profile |
 | `GrassInteractionZone` | Reusable bend / flatten impulse zone for moving actors or debug proxies |
 | `GrassDebugSettings` | Optional gizmo toggles for patch bounds, chunk bounds, LOD colors, and interaction radii |
@@ -115,7 +127,7 @@ fn setup(
 - Density maps sampled in patch UV or source-mesh UV space (`GrassDensityMapMode`)
 - Three-band LOD with density reduction, segment reduction, and Bevy `VisibilityRange`
 - Vertex-stage wind with macro sway, smooth value-noise gusts, per-blade flutter, and local interaction zones
-- Named wind presets (`calm`, `breezy`, `windy`, `storm`) for quick scene-appropriate tuning
+- Neutral wind defaults plus fully explicit `GrassWind` authoring at resource insert / mutation time
 - Optional composition with `saddle-world-wind`: each generated chunk samples the shared wind field at runtime and falls back to `GrassWind` when the wind crate is not present
 - Message-triggered rebuilds and asset-change-triggered rebuilds
 - Diagnostics and BRP-friendly runtime inspection
@@ -132,33 +144,33 @@ fn setup(
 
 | Example | Purpose | Run |
 |---------|---------|-----|
-| `basic` | Mixed turf + mesh-aligned slope patch | `cargo run -p grass --example basic` |
-| `wind_showcase` | Different stiffness profiles under animated wind | `cargo run -p grass --example wind_showcase` |
-| `lod_showcase` | Large distant meadow for density / LOD transitions | `cargo run -p grass --example lod_showcase` |
-| `interaction_strip` | Moving bend / flatten zone without gameplay coupling | `cargo run -p grass --example interaction_strip` |
-| `stress_field` | Heavier multi-patch field for diagnostics and perf checks | `cargo run -p grass --example stress_field` |
+| `basic` | Mixed turf + mesh-aligned slope patch | `cd examples && cargo run -p grass_example_basic` |
+| `wind_showcase` | Different stiffness profiles under animated wind | `cd examples && cargo run -p grass_example_wind_showcase` |
+| `lod_showcase` | Large distant meadow for density / LOD transitions | `cd examples && cargo run -p grass_example_lod_showcase` |
+| `interaction_strip` | Moving bend / flatten zone without gameplay coupling | `cd examples && cargo run -p grass_example_interaction_strip` |
+| `stress_field` | Heavier multi-patch field for diagnostics and perf checks | `cd examples && cargo run -p grass_example_stress_field` |
 
 ## Crate-Local Lab
 
 The richer verification app lives at `shared/rendering/grass/examples/lab`:
 
 ```bash
-cargo run -p grass_lab
+cd examples && cargo run -p grass_lab
 ```
 
 Targeted E2E scenarios:
 
 ```bash
-cargo run -p grass_lab --features e2e -- grass_smoke
-cargo run -p grass_lab --features e2e -- grass_wind_showcase
-cargo run -p grass_lab --features e2e -- grass_lod_showcase
-cargo run -p grass_lab --features e2e -- grass_interaction_strip
+cd examples && cargo run -p grass_lab --features e2e -- grass_smoke
+cd examples && cargo run -p grass_lab --features e2e -- grass_wind_showcase
+cd examples && cargo run -p grass_lab --features e2e -- grass_lod_showcase
+cd examples && cargo run -p grass_lab --features e2e -- grass_interaction_strip
 ```
 
 BRP workflow:
 
 ```bash
-cargo run -p grass_lab
+cd examples && cargo run -p grass_lab
 uv run --project .codex/skills/bevy-brp/script brp resource list | rg GrassDiagnostics
 uv run --project .codex/skills/bevy-brp/script brp resource get grass::resources::GrassDiagnostics
 uv run --project .codex/skills/bevy-brp/script brp extras screenshot /tmp/grass_lab_brp.png
@@ -177,7 +189,7 @@ uv run --project .codex/skills/bevy-brp/script brp extras shutdown
 ## Common Pitfalls
 
 - If a patch is invisible, check the source mesh or patch transform first. Mesh-surface patches use the source entity's mesh and transform as the scatter surface.
-- If grass looks too rigid, try `GrassWind::breezy()` or `GrassWind::windy()` instead of the default calm preset, or lower the archetype stiffness range.
+- If grass looks too rigid, insert or update `GrassWind` with a non-zero direction plus higher sway / gust strengths, or lower the archetype stiffness range.
 - If your project already uses `saddle-world-wind`, keep `GrassWind` as the simple fallback profile and tune `GrassWindBridge` instead of duplicating a second wind simulation.
 - If grass hovers above the ground, lower `normal_offset`. If it z-fights, raise it slightly.
 - If a patch rebuilds more often than expected, check whether some external system is mutating `GrassPatch`, `GrassConfig`, or the source mesh / density image every frame.
