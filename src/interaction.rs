@@ -66,7 +66,10 @@ impl GrassInteractionMap {
         let uv = self.world_to_uv(world_xz)?;
         let x = (uv.x * (self.resolution - 1) as f32).round() as usize;
         let y = (uv.y * (self.resolution - 1) as f32).round() as usize;
-        Some((x.min(self.resolution as usize - 1), y.min(self.resolution as usize - 1)))
+        Some((
+            x.min(self.resolution as usize - 1),
+            y.min(self.resolution as usize - 1),
+        ))
     }
 }
 
@@ -150,7 +153,7 @@ impl InteractionMapState {
         let mut data = vec![0u8; size];
         // Initialize R,G to 128 (neutral bend direction)
         for pixel in 0..(resolution * resolution) as usize {
-            data[pixel * 4] = 128;     // R: bend_x neutral
+            data[pixel * 4] = 128; // R: bend_x neutral
             data[pixel * 4 + 1] = 128; // G: bend_z neutral
             // B=0 (no flatten), A=0 (no hide)
         }
@@ -281,8 +284,12 @@ fn stamp_actor(
     let min_world = actor_pos - Vec2::splat(radius);
     let max_world = actor_pos + Vec2::splat(radius);
 
-    let Some(min_px) = map.world_to_pixel(min_world) else { return };
-    let Some(max_px) = map.world_to_pixel(max_world) else { return };
+    let Some(min_px) = map.world_to_pixel(min_world) else {
+        return;
+    };
+    let Some(max_px) = map.world_to_pixel(max_world) else {
+        return;
+    };
 
     let extent = map.half_extent * 2.0;
     let texel_size = extent / res as f32;

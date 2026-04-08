@@ -2,8 +2,8 @@ use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 
 use crate::config::{
-    GrassArchetype, GrassConfig, GrassDensityBlendMode, GrassDensityMapMode,
-    GrassLodBand, GrassScatterFilter, GrassSurface, GrassTextureChannel,
+    GrassArchetype, GrassConfig, GrassDensityBlendMode, GrassDensityMapMode, GrassLodBand,
+    GrassScatterFilter, GrassSurface, GrassTextureChannel,
 };
 use crate::surface::{SurfaceBake, SurfaceTriangle};
 
@@ -115,8 +115,13 @@ pub(crate) fn planar_chunk_samples(
                 GrassSurface::Mesh(_) => None,
             };
             let threshold = rng.next_f32();
-            if !passes_density(config, density_image, density_layer_images, density_uv, threshold)
-            {
+            if !passes_density(
+                config,
+                density_image,
+                density_layer_images,
+                density_uv,
+                threshold,
+            ) {
                 continue;
             }
 
@@ -194,7 +199,13 @@ pub(crate) fn mesh_chunk_samples(
             None => None,
         };
         let threshold = rng.next_f32();
-        if !passes_density(config, density_image, density_layer_images, density_uv, threshold) {
+        if !passes_density(
+            config,
+            density_image,
+            density_layer_images,
+            density_uv,
+            threshold,
+        ) {
             continue;
         }
         if !passes_scatter_filter(&config.scatter_filter, &point, surface_global) {
@@ -269,7 +280,11 @@ fn passes_density(
     }
 
     // Additional density layers
-    for (layer, layer_image) in config.density_layers.iter().zip(density_layer_images.iter()) {
+    for (layer, layer_image) in config
+        .density_layers
+        .iter()
+        .zip(density_layer_images.iter())
+    {
         let Some(image) = layer_image else {
             continue;
         };
@@ -334,7 +349,10 @@ fn passes_scatter_filter(
             // Since we don't have the rng here, we use the fractional part of the
             // position as a pseudo-random threshold.
             let t = (distance - zone.radius) / zone.falloff;
-            let pseudo_rand = (world_pos.x * 12.9898 + world_pos.z * 78.233).sin().abs().fract();
+            let pseudo_rand = (world_pos.x * 12.9898 + world_pos.z * 78.233)
+                .sin()
+                .abs()
+                .fract();
             if pseudo_rand > t {
                 return false;
             }

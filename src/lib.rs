@@ -19,14 +19,12 @@ mod surface;
 mod systems;
 
 pub use components::{GrassInteractionZone, GrassPatch, GrassPatchBundle};
-pub use interaction::{
-    GrassInteractionActor, GrassInteractionMap, GrassInteractionPolicy,
-};
 pub use config::{
     BladeShape, GrassArchetype, GrassChunking, GrassConfig, GrassDensityBlendMode,
     GrassDensityLayer, GrassDensityMap, GrassDensityMapMode, GrassExclusionZone, GrassLodBand,
     GrassLodConfig, GrassNormalSource, GrassScatterFilter, GrassSurface, GrassTextureChannel,
 };
+pub use interaction::{GrassInteractionActor, GrassInteractionMap, GrassInteractionPolicy};
 pub use messages::GrassRebuildRequest;
 pub use resources::{
     GrassDebugSettings, GrassDiagnostics, GrassPatchDiagnostics, GrassWind, GrassWindBridge,

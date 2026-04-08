@@ -31,7 +31,7 @@ fn decay_moves_bend_toward_neutral() {
     data[0] = 200;
     data[1] = 128;
     data[2] = 100; // flatten
-    data[3] = 50;  // hide (non-permanent)
+    data[3] = 50; // hide (non-permanent)
 
     let decay = 0.5;
     for pixel in 0..res * res {
@@ -44,7 +44,11 @@ fn decay_moves_bend_toward_neutral() {
         }
     }
 
-    assert!(data[0] < 200 && data[0] > 128, "R should decay toward 128, got {}", data[0]);
+    assert!(
+        data[0] < 200 && data[0] > 128,
+        "R should decay toward 128, got {}",
+        data[0]
+    );
     assert_eq!(data[1], 128);
     assert!(data[2] < 100);
     assert!(data[3] < 50);
@@ -93,7 +97,9 @@ fn stamp_bend_actor_writes_directional_bend() {
     assert!(
         data[idx] > 128,
         "pixel right of actor center should bend right (R > 128), got {} at ({}, {})",
-        data[idx], px, py,
+        data[idx],
+        px,
+        py,
     );
 }
 

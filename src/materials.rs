@@ -64,7 +64,10 @@ impl GrassMaterialUniform {
         let (map_active, map_region) = match interaction_map {
             Some(map) if map.enabled => {
                 let inv_extent = 1.0 / (map.half_extent * 2.0).max(0.001);
-                (1u32, Vec4::new(map.center.x, map.center.y, inv_extent, inv_extent))
+                (
+                    1u32,
+                    Vec4::new(map.center.x, map.center.y, inv_extent, inv_extent),
+                )
             }
             _ => (0u32, Vec4::ZERO),
         };

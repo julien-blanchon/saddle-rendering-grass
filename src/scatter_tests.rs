@@ -261,12 +261,15 @@ fn slope_filter_rejects_steep_normals() {
         &global_flat,
         99,
     );
-    assert!(!flat_samples.is_empty(), "flat ground should produce blades");
+    assert!(
+        !flat_samples.is_empty(),
+        "flat ground should produce blades"
+    );
 
     // 60° tilted surface — should reject (normal is at 60° from up)
-    let global_steep = GlobalTransform::from(Transform::from_rotation(
-        Quat::from_rotation_x(std::f32::consts::FRAC_PI_3),
-    ));
+    let global_steep = GlobalTransform::from(Transform::from_rotation(Quat::from_rotation_x(
+        std::f32::consts::FRAC_PI_3,
+    )));
     let steep_samples = planar_chunk_samples(
         Vec2::splat(4.0),
         Vec2::new(-2.0, -2.0),
@@ -319,8 +322,7 @@ fn altitude_filter_rejects_out_of_range() {
     assert!(!low_samples.is_empty(), "Y=5 should be in range 0..10");
 
     // At Y=50 — should reject
-    let global_high =
-        GlobalTransform::from(Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)));
+    let global_high = GlobalTransform::from(Transform::from_translation(Vec3::new(0.0, 50.0, 0.0)));
     let high_samples = planar_chunk_samples(
         Vec2::splat(4.0),
         Vec2::new(-2.0, -2.0),
@@ -404,7 +406,9 @@ fn strip_blade_produces_visible_mesh() {
     assert!(mesh.is_some(), "mesh should build");
     let mesh = mesh.unwrap();
 
-    let positions = mesh.attribute(bevy::mesh::Mesh::ATTRIBUTE_POSITION).unwrap();
+    let positions = mesh
+        .attribute(bevy::mesh::Mesh::ATTRIBUTE_POSITION)
+        .unwrap();
     let count = match positions {
         bevy::mesh::VertexAttributeValues::Float32x3(v) => v.len(),
         _ => 0,
