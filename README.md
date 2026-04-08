@@ -103,19 +103,44 @@ The crate defaults are intentionally neutral: `GrassConfig::default()` uses a si
 | `GrassSystems` | Public ordering hooks: `Prepare`, `Scatter`, `Upload`, `Animate`, `Debug` |
 | `GrassPatch` | Authoring component for patch bounds, density scaling, seed, chunking, and planar vs mesh surface mode; auto-requires `GrassConfig` and core transform/visibility components |
 | `GrassPatchBundle` | Minimal authoring bundle for `Name + GrassPatch + GrassConfig` |
-| `GrassConfig` | Per-patch density, LOD, archetypes, surface alignment, density-map, and shadow controls |
-| `GrassArchetype` | Blade dimensions, bend/lean/stiffness, root/tip colors, tint variance, and transmission |
+| `GrassConfig` | Per-patch density, LOD, archetypes, surface alignment, density-map, scatter filters, density layers, and shadow controls |
+| `GrassArchetype` | Blade dimensions, bend/lean/stiffness, root/tip colors, tint variance, transmission, blade shape, tip alpha, normal source, and blade texture |
+| `BladeShape` | Blade geometry: `Strip` (default), `CrossBillboard`, `FlatCard`, `SingleTriangle` |
+| `GrassNormalSource` | Normal mode: `BladeFacing` (standard) or `GroundNormal` (flat/cel-shaded) |
+| `GrassScatterFilter` | Scatter-time placement filters: slope range, altitude range, exclusion zones |
+| `GrassExclusionZone` | Spherical world-space zone that prevents grass placement (with optional soft falloff) |
+| `GrassDensityLayer` / `GrassDensityBlendMode` | Additional density map layers with compositing (Multiply, Min, Max, Add) |
 | `GrassChunking` | Chunk size used to partition patch rebuilds and generated meshes |
 | `GrassDensityMap` | Optional density texture plus channel / mapping selection |
 | `GrassSurface` | `Planar` or `Mesh(Entity)` surface selection |
-| `GrassLodConfig` / `GrassLodBand` | Distance bands that reduce blade density and blade segment count |
+| `GrassLodConfig` / `GrassLodBand` | Variable-length distance bands (1-N) that reduce blade density and blade segment count |
 | `GrassWind` | Explicit global wind direction and layered sway / gust / flutter controls; defaults to neutral zero-motion data |
 | `GrassWindBridge` | Optional adapter that maps `saddle-world-wind` samples into the grass shader while preserving `GrassWind` as the standalone fallback profile |
-| `GrassInteractionZone` | Reusable bend / flatten impulse zone for moving actors or debug proxies |
+| `GrassInteractionMap` | World-space CPU texture that actors stamp into; sampled by shader per-vertex. Replaces the 4-zone limit with unlimited actors + persistent trails. |
+| `GrassInteractionActor` | Component for any entity that affects grass. Configurable policy: `Bend`, `Flatten`, `BendAndFlatten`, `Hide`. |
+| `GrassInteractionPolicy` | How an actor affects grass: bend direction, flatten amount, hide/cut (permanent or recoverable). |
+| `GrassInteractionZone` | Legacy bend/flatten impulse zone (still works, additive with interaction map). |
 | `GrassDebugSettings` | Optional gizmo toggles for patch bounds, chunk bounds, LOD colors, and interaction radii |
 | `GrassDiagnostics` / `GrassPatchDiagnostics` | Runtime counts for active + visible chunks/blades and per-patch LOD visibility |
 | `GrassRebuildRequest` | Message-based manual rebuild trigger for a specific patch |
 | `GrassMaterial` | Public material alias for downstream inspection or custom lab tooling |
+
+## When to Use
+
+- Outdoor 3D scenes needing dense, animated ground vegetation (meadows, lawns, grasslands, forest floors)
+- Terrain-following grass on heightfield or arbitrary mesh surfaces
+- Games where wind reactivity and player interaction matter for immersion
+- **Realistic games** — use multi-segment Strip blades with blade textures and soft tip alpha
+- **Anime / Zelda-style games** — use SingleTriangle blades with GroundNormal projection for flat cel-shaded look
+- **Strategy / RTS** — use CrossBillboard or FlatCard at lower density for distant fields
+- Any project using Bevy's PBR pipeline (extends `StandardMaterial`, shadows/lighting just work)
+
+## When NOT to Use
+
+- **2D games** — blade-strip geometry is 3D; use sprite-based grass for 2D/isometric
+- **Voxel worlds** — block aesthetics don't pair with blade strips; model grass as block geometry
+- **Extremely dense forests where grass is invisible** — if camera never sees the ground, skip the cost
+- **Mobile / low-end targets with tight budgets** — even low settings carry chunk entity management overhead
 
 ## Supported
 
@@ -123,10 +148,19 @@ The crate defaults are intentionally neutral: `GrassConfig::default()` uses a si
 - Per-patch density scaling via `GrassPatch::density_scale`
 - Planar patches and mesh-surface patches
 - Per-blade height / width / lean / forward curve / color variation / phase variation
-- Multi-archetype patches
+- Multi-archetype patches with per-archetype blade shapes
+- **Four blade shapes**: `Strip` (tapered multi-segment), `CrossBillboard` (X-shaped), `FlatCard` (2-tri quad), `SingleTriangle` (anime style)
+- **Tip alpha fading** — vertex alpha gradient from root (opaque) to tip (configurable transparency)
+- **Ground-normal projection** (`GrassNormalSource::GroundNormal`) for flat/cel-shaded styles
+- **Blade texture support** — optional albedo texture per archetype with alpha cutout masking
 - Density maps sampled in patch UV or source-mesh UV space (`GrassDensityMapMode`)
-- Three-band LOD with density reduction, segment reduction, and Bevy `VisibilityRange`
-- Vertex-stage wind with macro sway, smooth value-noise gusts, per-blade flutter, and local interaction zones
+- **Multiple density layers** with compositing (Multiply, Min, Max, Add blend modes)
+- **Scatter-time placement filters**: slope range, altitude range, spherical exclusion zones
+- **Variable-length LOD bands** (1 to N) with density reduction, segment reduction, and Bevy `VisibilityRange`
+- **Interaction map** — world-space CPU texture stamped by `GrassInteractionActor` entities each frame, sampled by vertex shader. Unlimited simultaneous actors. Configurable policies: `Bend`, `Flatten`, `BendAndFlatten`, `Hide` (permanent or recoverable). Persistent trails with configurable recovery speed.
+- **Hide/cut** — actors with `Hide` policy collapse blades to zero height with alpha fade-out. Permanent cuts don't recover.
+- Legacy `GrassInteractionZone` still works (additive with interaction map, up to 4 zones).
+- Vertex-stage wind with macro sway, smooth value-noise gusts, per-blade flutter, and interaction zones
 - Neutral wind defaults plus fully explicit `GrassWind` authoring at resource insert / mutation time
 - Optional composition with `saddle-world-wind`: each generated chunk samples the shared wind field at runtime and falls back to `GrassWind` when the wind crate is not present
 - Message-triggered rebuilds and asset-change-triggered rebuilds
@@ -134,10 +168,9 @@ The crate defaults are intentionally neutral: `GrassConfig::default()` uses a si
 
 ## Intentionally Deferred
 
-- Texture-atlas blade sprites
 - Full GPU instance-buffer scattering
 - Blue-noise / Poisson sampling
-- Shadow-proxy meshes for far grass
+- Shadow-proxy meshes / billboard impostors for far grass
 - Automatic biome or terrain-generation integration
 
 ## Examples
@@ -147,8 +180,12 @@ The crate defaults are intentionally neutral: `GrassConfig::default()` uses a si
 | `basic` | Mixed turf + mesh-aligned slope patch | `cd examples && cargo run -p grass_example_basic` |
 | `wind_showcase` | Different stiffness profiles under animated wind | `cd examples && cargo run -p grass_example_wind_showcase` |
 | `lod_showcase` | Large distant meadow for density / LOD transitions | `cd examples && cargo run -p grass_example_lod_showcase` |
-| `interaction_strip` | Moving bend / flatten zone without gameplay coupling | `cd examples && cargo run -p grass_example_interaction_strip` |
+| `interaction_strip` | Moving bend / flatten zone without gameplay coupling (legacy zones) | `cd examples && cargo run -p grass_example_interaction_strip` |
+| `interaction_demo` | **Interaction map**: rolling ball trail, orbiting bend sphere, hide zone, legacy zone | `cd examples && cargo run -p grass_example_interaction_demo` |
 | `stress_field` | Heavier multi-patch field for diagnostics and perf checks | `cd examples && cargo run -p grass_example_stress_field` |
+| `stylized_grass` | **Anime, realistic soft-tip, cross-billboard** art styles + all 4 blade shapes | `cd examples && cargo run -p grass_example_stylized_grass` |
+| `scatter_filters` | **Slope masking, altitude range, exclusion zones** with animated sphere | `cd examples && cargo run -p grass_example_scatter_filters` |
+| `blade_shapes` | All blade shapes side-by-side + **variable 2-band vs 3-band LOD** | `cd examples && cargo run -p grass_example_blade_shapes` |
 
 ## Crate-Local Lab
 
@@ -165,6 +202,9 @@ cd examples && cargo run -p grass_lab --features e2e -- grass_smoke
 cd examples && cargo run -p grass_lab --features e2e -- grass_wind_showcase
 cd examples && cargo run -p grass_lab --features e2e -- grass_lod_showcase
 cd examples && cargo run -p grass_lab --features e2e -- grass_interaction_strip
+cd examples && cargo run -p grass_lab --features e2e -- grass_scatter_filters
+cd examples && cargo run -p grass_lab --features e2e -- grass_blade_shapes
+cd examples && cargo run -p grass_lab --features e2e -- grass_stylized
 ```
 
 BRP workflow:

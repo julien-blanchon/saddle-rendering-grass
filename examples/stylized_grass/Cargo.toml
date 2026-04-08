@@ -1,0 +1,14 @@
+[package]
+name = "grass_example_stylized_grass"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bevy = { workspace = true }
+grass = { workspace = true }
+grass_example_common = { path = "../common" }
+saddle-pane = { workspace = true }
+
+[lints]
+workspace = true

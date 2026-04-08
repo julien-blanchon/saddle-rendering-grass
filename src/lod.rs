@@ -29,24 +29,25 @@ pub(crate) fn visibility_range_for_band(bands: &[GrassLodBand], index: usize) ->
     }
 }
 
-pub(crate) fn resolve_lod_bands(config: &GrassLodConfig) -> [SelectedLodBand; 3] {
-    [
-        SelectedLodBand {
+pub(crate) fn resolve_lod_bands(config: &GrassLodConfig) -> Vec<SelectedLodBand> {
+    if config.bands.is_empty() {
+        return vec![SelectedLodBand {
             index: 0,
-            band: config.bands[0].clone(),
-            visibility_range: visibility_range_for_band(&config.bands, 0),
-        },
-        SelectedLodBand {
-            index: 1,
-            band: config.bands[1].clone(),
-            visibility_range: visibility_range_for_band(&config.bands, 1),
-        },
-        SelectedLodBand {
-            index: 2,
-            band: config.bands[2].clone(),
-            visibility_range: visibility_range_for_band(&config.bands, 2),
-        },
-    ]
+            band: GrassLodBand::default(),
+            visibility_range: visibility_range_for_band(&[GrassLodBand::default()], 0),
+        }];
+    }
+
+    config
+        .bands
+        .iter()
+        .enumerate()
+        .map(|(index, _)| SelectedLodBand {
+            index,
+            band: config.bands[index].clone(),
+            visibility_range: visibility_range_for_band(&config.bands, index),
+        })
+        .collect()
 }
 
 #[cfg(test)]

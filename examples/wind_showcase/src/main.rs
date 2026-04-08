@@ -24,7 +24,7 @@ fn main() {
             WindPlugin::default().with_config(WindProfile::Gale.config()),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (animate_gust_lane, common::sync_overlay))
+        .add_systems(Update, (animate_gust_lane, common::sync_overlay, common::free_flight_system))
         .run();
 }
 

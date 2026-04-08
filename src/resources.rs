@@ -117,10 +117,11 @@ pub struct GrassPatchDiagnostics {
     pub blade_count: u32,
     pub visible_chunk_count: u32,
     pub visible_blade_count: u32,
-    pub lod_chunk_counts: [u32; 3],
-    pub lod_blade_counts: [u32; 3],
-    pub visible_lod_chunk_counts: [u32; 3],
-    pub visible_lod_blade_counts: [u32; 3],
+    /// Per-LOD-band chunk and blade counts (variable length).
+    pub lod_chunk_counts: Vec<u32>,
+    pub lod_blade_counts: Vec<u32>,
+    pub visible_lod_chunk_counts: Vec<u32>,
+    pub visible_lod_blade_counts: Vec<u32>,
     pub dirty: bool,
 }
 
@@ -133,10 +134,10 @@ impl Default for GrassPatchDiagnostics {
             blade_count: 0,
             visible_chunk_count: 0,
             visible_blade_count: 0,
-            lod_chunk_counts: [0; 3],
-            lod_blade_counts: [0; 3],
-            visible_lod_chunk_counts: [0; 3],
-            visible_lod_blade_counts: [0; 3],
+            lod_chunk_counts: Vec::new(),
+            lod_blade_counts: Vec::new(),
+            visible_lod_chunk_counts: Vec::new(),
+            visible_lod_blade_counts: Vec::new(),
             dirty: false,
         }
     }

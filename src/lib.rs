@@ -8,6 +8,7 @@ use bevy::shader::Shader;
 
 mod components;
 mod config;
+mod interaction;
 mod lod;
 mod materials;
 mod mesh;
@@ -18,9 +19,13 @@ mod surface;
 mod systems;
 
 pub use components::{GrassInteractionZone, GrassPatch, GrassPatchBundle};
+pub use interaction::{
+    GrassInteractionActor, GrassInteractionMap, GrassInteractionPolicy,
+};
 pub use config::{
-    GrassArchetype, GrassChunking, GrassConfig, GrassDensityMap, GrassDensityMapMode, GrassLodBand,
-    GrassLodConfig, GrassSurface, GrassTextureChannel,
+    BladeShape, GrassArchetype, GrassChunking, GrassConfig, GrassDensityBlendMode,
+    GrassDensityLayer, GrassDensityMap, GrassDensityMapMode, GrassExclusionZone, GrassLodBand,
+    GrassLodConfig, GrassNormalSource, GrassScatterFilter, GrassSurface, GrassTextureChannel,
 };
 pub use messages::GrassRebuildRequest;
 pub use resources::{
@@ -97,21 +102,30 @@ impl Plugin for GrassPlugin {
             .init_resource::<GrassDiagnostics>()
             .init_resource::<resources::GrassInteractionState>()
             .add_message::<GrassRebuildRequest>()
+            .register_type::<BladeShape>()
             .register_type::<GrassArchetype>()
             .register_type::<GrassConfig>()
             .register_type::<GrassDebugSettings>()
+            .register_type::<GrassDensityBlendMode>()
+            .register_type::<GrassDensityLayer>()
             .register_type::<GrassDensityMap>()
             .register_type::<GrassDensityMapMode>()
             .register_type::<GrassDiagnostics>()
+            .register_type::<GrassExclusionZone>()
             .register_type::<GrassInteractionZone>()
             .register_type::<GrassLodBand>()
             .register_type::<GrassLodConfig>()
+            .register_type::<GrassNormalSource>()
             .register_type::<GrassPatch>()
             .register_type::<GrassPatchDiagnostics>()
+            .register_type::<GrassScatterFilter>()
             .register_type::<GrassSurface>()
             .register_type::<GrassTextureChannel>()
             .register_type::<GrassWind>()
             .register_type::<GrassWindBridge>()
+            .register_type::<GrassInteractionActor>()
+            .register_type::<GrassInteractionMap>()
+            .register_type::<GrassInteractionPolicy>()
             .add_systems(self.activate_schedule, systems::activate_runtime)
             .add_systems(self.deactivate_schedule, systems::deactivate_runtime)
             .configure_sets(
@@ -133,6 +147,9 @@ impl Plugin for GrassPlugin {
                     systems::mark_dirty_from_surface_changes,
                     systems::mark_dirty_from_asset_changes,
                     systems::collect_interaction_zones,
+                    interaction::ensure_interaction_map_state,
+                    interaction::update_interaction_map_center,
+                    interaction::stamp_interaction_map,
                 )
                     .chain()
                     .in_set(GrassSystems::Prepare)

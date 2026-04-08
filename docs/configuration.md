@@ -47,7 +47,7 @@ This document lists the public tuning surface for `grass`. Defaults are the curr
 
 | Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
 |------|------|---------|------------------------|---------------|-------------|
-| `bands` | `[GrassLodBand; 3]` | near / mid / far defaults | three authored bands | defines the near-to-far density and complexity ramp | major driver of far-field cost |
+| `bands` | `Vec<GrassLodBand>` | near / mid / far defaults (3 bands) | 1 to N authored bands, sorted by ascending `max_distance` | defines the near-to-far density and complexity ramp | major driver of far-field cost |
 
 ## `GrassArchetype`
 
@@ -77,9 +77,11 @@ This document lists the public tuning surface for `grass`. Defaults are the curr
 | `align_to_surface` | `f32` | `0.7` | `0..=1` typical | `0` keeps grass upright, `1` follows the surface normal closely | negligible |
 | `normal_offset` | `f32` | `0.005` | small positive value | lifts blades slightly off the surface to avoid z-fighting | negligible |
 | `density_map` | `Option<GrassDensityMap>` | `None` | optional density texture | carves empty / dense areas | rebuild-time texture sampling only |
-| `lod` | `GrassLodConfig` | default 3-band config | authored LOD band set | near/far density and complexity balance | major far-field cost control |
+| `density_layers` | `Vec<GrassDensityLayer>` | empty | additional density map layers with compositing | stack slope mask + painted mask + noise | rebuild-time texture sampling per layer |
+| `lod` | `GrassLodConfig` | default 3-band config | authored LOD band set (1-N bands) | near/far density and complexity balance | major far-field cost control |
 | `archetypes` | `Vec<GrassArchetype>` | one neutral base archetype | at least one enabled archetype recommended | mixes turf / meadow / flower variants in one patch | more archetypes multiply generated chunk meshes |
 | `cast_shadows` | `bool` | `false` | enable only when needed | makes grass participate in shadow casting | can become very expensive on dense patches |
+| `scatter_filter` | `GrassScatterFilter` | all filters disabled | slope, altitude, and exclusion zone placement filters | rejects blades on cliffs, above snow line, near buildings | rebuild-time per-blade checks |
 
 ## `GrassWind`
 
@@ -116,7 +118,43 @@ Updating `GrassWind` does not rebuild patches. It only refreshes the shared mate
 | `flutter_strength_scale` | `f32` | `0.2` | `>= 0` | maps sampled flutter detail into high-frequency blade motion | negligible |
 | `flutter_speed_from_speed` | `f32` | `0.15` | `>= 0` | adds shared wind speed into flutter oscillation rate | negligible |
 
-## `GrassInteractionZone`
+## `GrassInteractionMap`
+
+World-space CPU texture that actors stamp into each frame. Sampled by the grass vertex shader per-vertex. Replaces the 4-zone uniform limit with unlimited actors and persistent trails.
+
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+|------|------|---------|------------------------|---------------|-------------|
+| `center` | `Vec2` | `Vec2::ZERO` | world XZ center of the map region | where interaction is tracked | negligible |
+| `half_extent` | `f32` | `30.0` | `> 0` in world units | how large the interaction region is | larger = more texels to update |
+| `resolution` | `u32` | `256` | 64, 128, 256, 512 typical | finer detail with higher resolution | CPU cost scales with resolution² |
+| `recovery_speed` | `f32` | `2.0` | `0` = permanent, `1` = ~1s recovery, `5` = very fast | how quickly trails fade | negligible |
+| `follow_camera` | `bool` | `true` | auto-center on camera each frame | keeps interaction region near the player | negligible |
+| `enabled` | `bool` | `true` | toggle the entire interaction map system | falls back to legacy zones when disabled | negligible |
+
+## `GrassInteractionActor`
+
+Attach to any entity with a `Transform` to make it affect nearby grass via the interaction map.
+
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+|------|------|---------|------------------------|---------------|-------------|
+| `radius` | `f32` | `1.4` | `> 0` in world units | footprint size | more pixels stamped per frame |
+| `policy` | `GrassInteractionPolicy` | `BendAndFlatten` | how the actor affects grass | see policy table below | negligible |
+| `falloff` | `f32` | `2.0` | `> 0` exponent | `1` = linear, `2` = quadratic edge, `0.5` = very soft | negligible |
+
+## `GrassInteractionPolicy`
+
+| Variant | Parameters | Effect | Recovery |
+|---------|-----------|--------|----------|
+| `Bend { strength }` | strength: 0..1 | Push blades away from actor center | Yes (recovery_speed) |
+| `Flatten { strength }` | strength: 0..1 | Push blades downward (trample) | Yes |
+| `BendAndFlatten { bend_strength, flatten_strength }` | both: 0..1 | Combined bend + flatten (most common for characters) | Yes |
+| `Hide { permanent }` | permanent: bool | Collapse blades to zero height (cut/destroy) | Only if permanent=false |
+
+## `GrassInteractionZone` (Legacy)
+
+Still works alongside the interaction map. Up to 4 zones are packed into shader uniforms.
+
+
 
 | Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
 |------|------|---------|------------------------|---------------|-------------|
@@ -141,3 +179,59 @@ Only the first four zones are packed into each material uniform in the current i
 | Field | Type | Meaning | Effect |
 |------|------|---------|--------|
 | `patch` | `Entity` | target patch entity | marks one patch dirty so it rebuilds on the next update |
+
+## `GrassScatterFilter`
+
+Controls scatter-time placement filters. All filters use AND logic — a blade must pass every enabled filter.
+
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+|------|------|---------|------------------------|---------------|-------------|
+| `slope_range_degrees` | `Option<(f32, f32)>` | `None` | `(min, max)` in degrees; `0` = flat, `90` = vertical | rejects blades on surfaces steeper than max or flatter than min | rebuild-time per-blade check |
+| `altitude_range` | `Option<(f32, f32)>` | `None` | `(min_y, max_y)` in world space | rejects blades above or below the Y range (snow line, water line) | rebuild-time per-blade check |
+| `exclusion_zones` | `Vec<GrassExclusionZone>` | empty | world-space spherical exclusion zones | clears grass around buildings, roads, props | rebuild-time per-blade distance check |
+
+## `GrassExclusionZone`
+
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+|------|------|---------|------------------------|---------------|-------------|
+| `center` | `Vec3` | `Vec3::ZERO` | world-space center | center of the exclusion sphere | negligible |
+| `radius` | `f32` | `2.0` | `> 0` | hard exclusion radius | negligible |
+| `falloff` | `f32` | `0.0` | `>= 0` | soft density ramp beyond `radius`; `0` = hard cutoff | blends edge smoothly | negligible |
+
+## `GrassDensityLayer`
+
+Additional density map layers applied after the primary `density_map`. Each layer's result is combined with the running density via its blend mode.
+
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+|------|------|---------|------------------------|---------------|-------------|
+| `image` | `Handle<Image>` | empty | any loaded 2D image | additional density sculpting layer | rebuild-time texture sampling |
+| `channel` | `GrassTextureChannel` | `Luminance` | R / G / B / A / Luminance | which channel drives this layer's value | negligible |
+| `mode` | `GrassDensityMapMode` | `PatchUv` | `PatchUv` or `SurfaceUv` | UV mapping mode | negligible |
+| `invert` | `bool` | `false` | flip dense/sparse | reverses interpretation | negligible |
+| `blend` | `GrassDensityBlendMode` | `Multiply` | `Multiply`, `Min`, `Max`, `Add` | how this layer composites with the running density | negligible |
+
+## `BladeShape`
+
+| Variant | Geometry | Best for | Vertex cost |
+|---------|----------|----------|-------------|
+| `Strip` | Multi-segment tapered ribbon | Realistic grass, default | 2 vertices per segment |
+| `CrossBillboard` | Two perpendicular strips (X) | Volumetric fill, stylized | 2× strip cost |
+| `FlatCard` | Single quad (2 triangles) | Cheap far LOD, texture cards | 4 vertices |
+| `SingleTriangle` | One triangle, point tip | Anime / Zelda style | 3 vertices |
+
+## `GrassNormalSource`
+
+| Variant | Shading | Best for |
+|---------|---------|----------|
+| `BladeFacing` | Normal follows blade forward direction (standard PBR) | Realistic grass |
+| `GroundNormal` | Normal projected from ground surface (flat unified shading) | Anime, cel-shaded, toon styles |
+
+## `GrassArchetype` (new fields)
+
+| Field | Type | Default | Valid range / meaning | Visual effect | Perf impact |
+|------|------|---------|------------------------|---------------|-------------|
+| `blade_shape` | `BladeShape` | `Strip` | any variant | controls blade geometry type | varies by shape |
+| `tip_alpha` | `f32` | `1.0` | `0.0..=1.0` | vertex alpha at blade tip; `1.0` = opaque, `0.0` = transparent tip | enables alpha blending when < 1.0 |
+| `normal_source` | `GrassNormalSource` | `BladeFacing` | any variant | controls how blade normals are computed for shading | negligible |
+| `blade_texture` | `Option<Handle<Image>>` | `None` | any loaded 2D image | optional albedo texture applied to blade strip UVs | enables alpha masking |
+| `alpha_cutoff` | `f32` | `0.5` | `0.01..=1.0` | alpha cutoff threshold when `blade_texture` is set | negligible |

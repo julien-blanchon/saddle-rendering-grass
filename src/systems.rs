@@ -7,6 +7,7 @@ use saddle_world_wind::{WindConfig, WindZone, sample_wind_with_zones, snapshot_z
 
 use crate::components::{GrassChunkRuntime, GrassGenerated, GrassPatchState};
 use crate::config::{GrassConfig, GrassSurface};
+use crate::interaction::{GrassInteractionMap, InteractionMapState};
 use crate::lod::resolve_lod_bands;
 use crate::materials::build_material;
 use crate::mesh::build_chunk_mesh;
@@ -120,6 +121,9 @@ pub(crate) fn mark_dirty_from_asset_changes(
         if let Some(density) = &config.density_map {
             dirty |= changed_images.contains(&density.image.id().untyped());
         }
+        for layer in &config.density_layers {
+            dirty |= changed_images.contains(&layer.image.id().untyped());
+        }
 
         if dirty {
             state.dirty = true;
@@ -166,6 +170,8 @@ pub(crate) fn rebuild_dirty_patches(
     wind_config: Option<Res<WindConfig>>,
     wind_zones: Query<(&WindZone, &GlobalTransform)>,
     interactions: Res<GrassInteractionState>,
+    interaction_map: Option<Res<GrassInteractionMap>>,
+    interaction_map_state: Option<Res<InteractionMapState>>,
     source_meshes: Query<(&Mesh3d, &GlobalTransform)>,
     mut patches: Query<(
         Entity,
@@ -195,6 +201,11 @@ pub(crate) fn rebuild_dirty_patches(
             .density_map
             .as_ref()
             .and_then(|density| images.get(&density.image));
+        let density_layer_images: Vec<Option<&Image>> = config
+            .density_layers
+            .iter()
+            .map(|layer| images.get(&layer.image))
+            .collect();
         let lods = resolve_lod_bands(&config.lod);
 
         for archetype_index in 0..config.archetypes.len() {
@@ -214,7 +225,9 @@ pub(crate) fn rebuild_dirty_patches(
                             archetype,
                             &lod.band,
                             density_image,
+                            &density_layer_images,
                             patch.surface,
+                            &build_plan.surface_global,
                             patch.seed
                                 ^ ((chunk.coord.x as i64 as u64) << 32)
                                 ^ chunk.coord.y as i64 as u64
@@ -229,6 +242,8 @@ pub(crate) fn rebuild_dirty_patches(
                             archetype,
                             &lod.band,
                             density_image,
+                            &density_layer_images,
+                            &build_plan.surface_global,
                             patch.seed
                                 ^ ((chunk.coord.x as i64 as u64) << 32)
                                 ^ chunk.coord.y as i64 as u64
@@ -261,7 +276,17 @@ pub(crate) fn rebuild_dirty_patches(
                         chunk_world_center,
                         time.elapsed_secs(),
                     );
-                    let material = build_material(archetype, &resolved_wind, &interactions.zones);
+                    let imap = interaction_map.as_deref();
+                    let imap_texture = interaction_map_state
+                        .as_ref()
+                        .map(|s| s.texture_handle.clone());
+                    let material = build_material(
+                        archetype,
+                        &resolved_wind,
+                        &interactions.zones,
+                        imap,
+                        imap_texture,
+                    );
                     let material_handle = materials.add(material);
                     state.material_handles.push(material_handle.clone());
                     let mesh_handle = meshes.add(mesh);
@@ -341,22 +366,53 @@ pub(crate) fn sync_material_uniforms(
     wind_config: Option<Res<WindConfig>>,
     wind_zones: Query<(&WindZone, &GlobalTransform)>,
     interactions: Res<GrassInteractionState>,
+    interaction_map: Option<Res<GrassInteractionMap>>,
+    interaction_map_state: Option<Res<InteractionMapState>>,
     mut materials: ResMut<Assets<GrassMaterial>>,
-    chunks: Query<(&GlobalTransform, &MeshMaterial3d<GrassMaterial>), With<GrassChunkRuntime>>,
+    chunks: Query<
+        (
+            &GlobalTransform,
+            &MeshMaterial3d<GrassMaterial>,
+            Option<&ViewVisibility>,
+        ),
+        With<GrassChunkRuntime>,
+    >,
 ) {
+    let map_changed = interaction_map.as_ref().is_some_and(|m| m.is_changed());
     if !fallback_wind.is_changed()
         && !wind_bridge.is_changed()
         && wind_config
             .as_ref()
             .is_none_or(|config| !config.is_changed())
         && !interactions.is_changed()
+        && !map_changed
         && wind_zones.iter().len() == 0
     {
         return;
     }
 
     let zone_snapshots = world_wind_snapshots(&wind_zones);
-    for (transform, material_handle) in &chunks {
+    let imap = interaction_map.as_deref();
+    let imap_texture = interaction_map_state
+        .as_ref()
+        .map(|s| s.texture_handle.clone());
+
+    // Track already-updated material IDs to avoid redundant writes when
+    // multiple chunks share the same material handle.
+    let mut updated_materials =
+        std::collections::HashSet::with_capacity(chunks.iter().len().min(128));
+
+    for (transform, material_handle, visibility) in &chunks {
+        // Skip invisible chunks — no point updating their material.
+        if visibility.is_some_and(|v| !v.get()) {
+            continue;
+        }
+
+        let mat_id = material_handle.0.id();
+        if !updated_materials.insert(mat_id) {
+            continue; // Already updated this material
+        }
+
         let Some(material) = materials.get_mut(&material_handle.0) else {
             continue;
         };
@@ -373,7 +429,11 @@ pub(crate) fn sync_material_uniforms(
         material.extension.uniform = crate::materials::GrassMaterialUniform::from_wind_and_zones(
             &resolved_wind,
             &interactions.zones,
+            imap,
         );
+        if let Some(ref tex) = imap_texture {
+            material.extension.interaction_map = Some(tex.clone());
+        }
     }
 }
 
@@ -420,15 +480,23 @@ pub(crate) fn publish_diagnostics(
             if chunk.patch != entity {
                 continue;
             }
+            // Grow per-LOD arrays on demand to accommodate any band count
+            let idx = chunk.lod_index;
+            if idx >= entry.lod_chunk_counts.len() {
+                entry.lod_chunk_counts.resize(idx + 1, 0);
+                entry.lod_blade_counts.resize(idx + 1, 0);
+                entry.visible_lod_chunk_counts.resize(idx + 1, 0);
+                entry.visible_lod_blade_counts.resize(idx + 1, 0);
+            }
             entry.chunk_count += 1;
             entry.blade_count += chunk.blade_count;
-            entry.lod_chunk_counts[chunk.lod_index] += 1;
-            entry.lod_blade_counts[chunk.lod_index] += chunk.blade_count;
+            entry.lod_chunk_counts[idx] += 1;
+            entry.lod_blade_counts[idx] += chunk.blade_count;
             if visibility.is_some_and(|visibility| visibility.get()) {
                 entry.visible_chunk_count += 1;
                 entry.visible_blade_count += chunk.blade_count;
-                entry.visible_lod_chunk_counts[chunk.lod_index] += 1;
-                entry.visible_lod_blade_counts[chunk.lod_index] += chunk.blade_count;
+                entry.visible_lod_chunk_counts[idx] += 1;
+                entry.visible_lod_blade_counts[idx] += chunk.blade_count;
             }
         }
 

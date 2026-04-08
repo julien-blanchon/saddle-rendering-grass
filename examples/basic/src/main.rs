@@ -13,7 +13,7 @@ fn main() {
             common::GrassExampleUiPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, common::sync_overlay)
+        .add_systems(Update, (common::sync_overlay, common::free_flight_system))
         .run();
 }
 

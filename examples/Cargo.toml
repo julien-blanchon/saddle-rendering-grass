@@ -6,6 +6,10 @@ members = [
     "lod_showcase",
     "interaction_strip",
     "stress_field",
+    "scatter_filters",
+    "stylized_grass",
+    "blade_shapes",
+    "interaction_demo",
     "lab",
 ]
 resolver = "3"

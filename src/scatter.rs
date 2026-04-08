@@ -2,8 +2,8 @@ use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 
 use crate::config::{
-    GrassArchetype, GrassConfig, GrassDensityMapMode, GrassLodBand, GrassSurface,
-    GrassTextureChannel,
+    GrassArchetype, GrassConfig, GrassDensityBlendMode, GrassDensityMapMode,
+    GrassLodBand, GrassScatterFilter, GrassSurface, GrassTextureChannel,
 };
 use crate::surface::{SurfaceBake, SurfaceTriangle};
 
@@ -63,7 +63,9 @@ pub(crate) fn planar_chunk_samples(
     archetype: &GrassArchetype,
     lod: &GrassLodBand,
     density_image: Option<&Image>,
+    density_layer_images: &[Option<&Image>],
     surface: GrassSurface,
+    surface_global: &GlobalTransform,
     seed: u64,
 ) -> Vec<BladeSample> {
     let area = (chunk_max - chunk_min).max(Vec2::ZERO);
@@ -112,19 +114,23 @@ pub(crate) fn planar_chunk_samples(
                 )),
                 GrassSurface::Mesh(_) => None,
             };
-            if !passes_density_map(config, density_image, density_uv, rng.next_f32()) {
+            let threshold = rng.next_f32();
+            if !passes_density(config, density_image, density_layer_images, density_uv, threshold)
+            {
                 continue;
             }
 
-            samples.push(blade_sample_from_point(
-                BladePoint {
-                    position_local: Vec3::new(local.x, 0.0, local.y),
-                    normal_local: Vec3::Y,
-                    uv: density_uv.unwrap_or(Vec2::ZERO),
-                },
-                archetype,
-                &mut rng,
-            ));
+            let point = BladePoint {
+                position_local: Vec3::new(local.x, 0.0, local.y),
+                normal_local: Vec3::Y,
+                uv: density_uv.unwrap_or(Vec2::ZERO),
+            };
+
+            if !passes_scatter_filter(&config.scatter_filter, &point, surface_global) {
+                continue;
+            }
+
+            samples.push(blade_sample_from_point(point, archetype, &mut rng));
         }
     }
 
@@ -139,6 +145,8 @@ pub(crate) fn mesh_chunk_samples(
     archetype: &GrassArchetype,
     lod: &GrassLodBand,
     density_image: Option<&Image>,
+    density_layer_images: &[Option<&Image>],
+    surface_global: &GlobalTransform,
     seed: u64,
 ) -> Vec<BladeSample> {
     let triangles: Vec<&SurfaceTriangle> = chunk_triangle_indices
@@ -185,7 +193,11 @@ pub(crate) fn mesh_chunk_samples(
             }
             None => None,
         };
-        if !passes_density_map(config, density_image, density_uv, rng.next_f32()) {
+        let threshold = rng.next_f32();
+        if !passes_density(config, density_image, density_layer_images, density_uv, threshold) {
+            continue;
+        }
+        if !passes_scatter_filter(&config.scatter_filter, &point, surface_global) {
             continue;
         }
         samples.push(blade_sample_from_point(point, archetype, &mut rng));
@@ -239,24 +251,97 @@ fn blade_sample_from_point(
     }
 }
 
-fn passes_density_map(
+/// Evaluates the primary density map plus all density layers with compositing.
+fn passes_density(
     config: &GrassConfig,
     density_image: Option<&Image>,
+    density_layer_images: &[Option<&Image>],
     sample_uv: Option<Vec2>,
     threshold: f32,
 ) -> bool {
-    let Some(density_map) = &config.density_map else {
-        return true;
-    };
-    let Some(image) = density_image else {
-        return true;
-    };
-    let Some(uv) = sample_uv else {
-        return true;
-    };
+    let mut density = 1.0f32;
 
-    let density = sample_density_image(image, uv, density_map.channel, density_map.invert);
+    // Primary density map
+    if let (Some(density_map), Some(image), Some(uv)) =
+        (&config.density_map, density_image, sample_uv)
+    {
+        density = sample_density_image(image, uv, density_map.channel, density_map.invert);
+    }
+
+    // Additional density layers
+    for (layer, layer_image) in config.density_layers.iter().zip(density_layer_images.iter()) {
+        let Some(image) = layer_image else {
+            continue;
+        };
+        let Some(uv) = sample_uv else {
+            continue;
+        };
+        let layer_value = sample_density_image(image, uv, layer.channel, layer.invert);
+        density = blend_density(density, layer_value, layer.blend);
+    }
+
     threshold <= density
+}
+
+fn blend_density(running: f32, layer: f32, mode: GrassDensityBlendMode) -> f32 {
+    match mode {
+        GrassDensityBlendMode::Multiply => running * layer,
+        GrassDensityBlendMode::Min => running.min(layer),
+        GrassDensityBlendMode::Max => running.max(layer),
+        GrassDensityBlendMode::Add => (running + layer - 1.0).clamp(0.0, 1.0),
+    }
+}
+
+/// Evaluates scatter-time placement filters (slope, altitude, exclusion zones).
+fn passes_scatter_filter(
+    filter: &GrassScatterFilter,
+    point: &BladePoint,
+    surface_global: &GlobalTransform,
+) -> bool {
+    let world_pos = surface_global.transform_point(point.position_local);
+    let world_normal = surface_global
+        .to_isometry()
+        .rotation
+        .mul_vec3(point.normal_local)
+        .normalize_or_zero();
+
+    // Slope filter: compute angle between surface normal and world up
+    if let Some((min_deg, max_deg)) = filter.slope_range_degrees {
+        let cos_angle = world_normal.dot(Vec3::Y).clamp(-1.0, 1.0);
+        let slope_degrees = cos_angle.acos().to_degrees();
+        if slope_degrees < min_deg || slope_degrees > max_deg {
+            return false;
+        }
+    }
+
+    // Altitude filter: world-space Y position
+    if let Some((min_y, max_y)) = filter.altitude_range {
+        if world_pos.y < min_y || world_pos.y > max_y {
+            return false;
+        }
+    }
+
+    // Exclusion zones
+    for zone in &filter.exclusion_zones {
+        let distance = world_pos.distance(zone.center);
+        if distance < zone.radius {
+            return false;
+        }
+        if zone.falloff > 0.0 && distance < zone.radius + zone.falloff {
+            // Soft falloff: density ramps 0→1 across the falloff distance.
+            // We treat this probabilistically — the blade's "survival" probability
+            // is the normalized distance within the falloff band.
+            // Since we don't have the rng here, we use the fractional part of the
+            // position as a pseudo-random threshold.
+            let t = (distance - zone.radius) / zone.falloff;
+            let pseudo_rand = (world_pos.x * 12.9898 + world_pos.z * 78.233).sin().abs().fract();
+            if pseudo_rand > t {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 pub(crate) fn sample_density_image(

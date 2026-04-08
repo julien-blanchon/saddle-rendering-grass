@@ -125,8 +125,95 @@ pub fn spawn_camera(commands: &mut Commands, translation: Vec3, target: Vec3) ->
             Name::new("Example Camera"),
             Camera3d::default(),
             Transform::from_translation(translation).looking_at(target, Vec3::Y),
+            FreeFlight::default(),
         ))
         .id()
+}
+
+/// Simple WASD + mouse free-flight camera for exploring grass examples.
+/// Hold right mouse button to look around, WASD to move, QE for up/down.
+#[derive(Component)]
+pub struct FreeFlight {
+    pub speed: f32,
+    pub sensitivity: f32,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub initialized: bool,
+}
+
+impl Default for FreeFlight {
+    fn default() -> Self {
+        Self {
+            speed: 8.0,
+            sensitivity: 0.003,
+            yaw: 0.0,
+            pitch: 0.0,
+            initialized: false,
+        }
+    }
+}
+
+pub fn free_flight_system(
+    time: Res<Time>,
+    mouse_buttons: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut mouse_motion: MessageReader<bevy::input::mouse::MouseMotion>,
+    mut query: Query<(&mut Transform, &mut FreeFlight)>,
+) {
+    let dt = time.delta_secs();
+    let motion: Vec2 = mouse_motion.read().map(|m| m.delta).sum();
+
+    for (mut transform, mut flight) in &mut query {
+        // Initialize yaw/pitch from current transform on first frame
+        if !flight.initialized {
+            let (yaw, pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
+            flight.yaw = yaw;
+            flight.pitch = pitch;
+            flight.initialized = true;
+        }
+
+        // Look: only when right mouse button is held
+        if mouse_buttons.pressed(MouseButton::Right) {
+            flight.yaw -= motion.x * flight.sensitivity;
+            flight.pitch -= motion.y * flight.sensitivity;
+            flight.pitch = flight.pitch.clamp(-1.5, 1.5);
+            transform.rotation =
+                Quat::from_rotation_y(flight.yaw) * Quat::from_rotation_x(flight.pitch);
+        }
+
+        // Move
+        let forward = transform.forward().as_vec3();
+        let right = transform.right().as_vec3();
+        let speed = if keys.pressed(KeyCode::ShiftLeft) {
+            flight.speed * 3.0
+        } else {
+            flight.speed
+        };
+
+        let mut velocity = Vec3::ZERO;
+        if keys.pressed(KeyCode::KeyW) {
+            velocity += forward;
+        }
+        if keys.pressed(KeyCode::KeyS) {
+            velocity -= forward;
+        }
+        if keys.pressed(KeyCode::KeyD) {
+            velocity += right;
+        }
+        if keys.pressed(KeyCode::KeyA) {
+            velocity -= right;
+        }
+        if keys.pressed(KeyCode::KeyE) || keys.pressed(KeyCode::Space) {
+            velocity += Vec3::Y;
+        }
+        if keys.pressed(KeyCode::KeyQ) {
+            velocity -= Vec3::Y;
+        }
+
+        if velocity.length_squared() > 0.0 {
+            transform.translation += velocity.normalize() * speed * dt;
+        }
+    }
 }
 
 pub fn spawn_lighting(commands: &mut Commands) {
@@ -339,9 +426,15 @@ fn initialize_grass_pane(
     if let Some(config) = configs.iter().next() {
         pane.density_per_square_unit = config.density_per_square_unit;
         pane.cast_shadows = config.cast_shadows;
-        pane.near_lod_distance = config.lod.bands[0].max_distance;
-        pane.mid_lod_distance = config.lod.bands[1].max_distance;
-        pane.far_lod_distance = config.lod.bands[2].max_distance;
+        if let Some(band) = config.lod.bands.first() {
+            pane.near_lod_distance = band.max_distance;
+        }
+        if let Some(band) = config.lod.bands.get(1) {
+            pane.mid_lod_distance = band.max_distance;
+        }
+        if let Some(band) = config.lod.bands.get(2) {
+            pane.far_lod_distance = band.max_distance;
+        }
 
         if let Some(archetype) = config.archetypes.first() {
             pane.blade_height_max = archetype.blade_height.y;
@@ -366,7 +459,15 @@ fn sync_grass_pane(
     mut configs: Query<&mut GrassConfig>,
     mut wind: ResMut<GrassWind>,
     mut bridge: ResMut<GrassWindBridge>,
+    mut initialized: Local<bool>,
 ) {
+    // Skip the first change detection tick — the pane starts with defaults (zeros)
+    // and initialize_grass_pane hasn't run yet (PostStartup). Without this guard,
+    // the default-zero pane overwrites the user-inserted wind resource.
+    if !*initialized {
+        *initialized = true;
+        return;
+    }
     if !pane.is_changed() {
         return;
     }
@@ -374,9 +475,15 @@ fn sync_grass_pane(
     for mut config in &mut configs {
         config.density_per_square_unit = pane.density_per_square_unit;
         config.cast_shadows = pane.cast_shadows;
-        config.lod.bands[0].max_distance = pane.near_lod_distance;
-        config.lod.bands[1].max_distance = pane.mid_lod_distance.max(pane.near_lod_distance + 1.0);
-        config.lod.bands[2].max_distance = pane.far_lod_distance.max(pane.mid_lod_distance + 1.0);
+        if let Some(band) = config.lod.bands.get_mut(0) {
+            band.max_distance = pane.near_lod_distance;
+        }
+        if let Some(band) = config.lod.bands.get_mut(1) {
+            band.max_distance = pane.mid_lod_distance.max(pane.near_lod_distance + 1.0);
+        }
+        if let Some(band) = config.lod.bands.get_mut(2) {
+            band.max_distance = pane.far_lod_distance.max(pane.mid_lod_distance + 1.0);
+        }
         for archetype in &mut config.archetypes {
             archetype.blade_height.y = pane.blade_height_max;
             archetype.blade_width.y = pane.blade_width_max;

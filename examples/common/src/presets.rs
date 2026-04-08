@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use grass::{GrassArchetype, GrassWind};
+use grass::{BladeShape, GrassArchetype, GrassNormalSource, GrassWind};
 
 pub mod archetypes {
     use super::*;
@@ -49,6 +49,62 @@ pub mod archetypes {
             tip_color: Color::srgb(0.93, 0.72, 0.46),
             color_variation: 0.28,
             stiffness: Vec2::new(0.75, 1.05),
+            ..default()
+        }
+    }
+
+    /// Anime / Zelda-style grass: large single-triangle blades, bright flat colors,
+    /// ground-normal projection for unified shading.
+    pub fn anime() -> GrassArchetype {
+        GrassArchetype {
+            debug_name: "Anime".into(),
+            blade_height: Vec2::new(0.6, 1.2),
+            blade_width: Vec2::new(0.08, 0.16),
+            forward_curve: Vec2::new(0.0, 0.05),
+            lean: Vec2::new(-0.05, 0.05),
+            root_color: Color::srgb(0.12, 0.52, 0.18),
+            tip_color: Color::srgb(0.40, 0.88, 0.32),
+            color_variation: 0.04,
+            roughness: 0.95,
+            reflectance: 0.04,
+            diffuse_transmission: 0.0,
+            blade_shape: BladeShape::SingleTriangle,
+            tip_alpha: 1.0,
+            normal_source: GrassNormalSource::GroundNormal,
+            ..default()
+        }
+    }
+
+    /// Cross-billboard grass: cheap, volumetric feel at distance.
+    pub fn cross_billboard() -> GrassArchetype {
+        GrassArchetype {
+            debug_name: "Cross".into(),
+            blade_height: Vec2::new(0.45, 0.85),
+            blade_width: Vec2::new(0.04, 0.08),
+            forward_curve: Vec2::new(0.01, 0.06),
+            lean: Vec2::new(-0.06, 0.06),
+            root_color: Color::srgb(0.18, 0.38, 0.12),
+            tip_color: Color::srgb(0.45, 0.78, 0.30),
+            color_variation: 0.12,
+            blade_shape: BladeShape::CrossBillboard,
+            tip_alpha: 0.65,
+            ..default()
+        }
+    }
+
+    /// Flat card grass — ideal for texture-based alpha cutout blades.
+    pub fn flat_card() -> GrassArchetype {
+        GrassArchetype {
+            debug_name: "Card".into(),
+            blade_height: Vec2::new(0.5, 0.9),
+            blade_width: Vec2::new(0.06, 0.12),
+            forward_curve: Vec2::new(0.0, 0.0),
+            lean: Vec2::new(-0.02, 0.02),
+            root_color: Color::srgb(0.20, 0.40, 0.14),
+            tip_color: Color::srgb(0.50, 0.80, 0.35),
+            color_variation: 0.06,
+            blade_shape: BladeShape::FlatCard,
+            tip_alpha: 0.4,
             ..default()
         }
     }

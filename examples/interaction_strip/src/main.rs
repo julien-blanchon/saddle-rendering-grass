@@ -16,7 +16,7 @@ fn main() {
             common::GrassExampleUiPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (move_walker, common::sync_overlay))
+        .add_systems(Update, (move_walker, common::sync_overlay, common::free_flight_system))
         .run();
 }
 

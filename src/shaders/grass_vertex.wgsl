@@ -1,10 +1,11 @@
 #import bevy_pbr::mesh_view_bindings::globals
+#import bevy_pbr::mesh_view_bindings::view
 #import bevy_pbr::mesh_functions::{
     get_visibility_range_dither_level,
     get_world_from_local,
 }
 #import bevy_pbr::forward_io::{VertexOutput}
-#import bevy_pbr::view_transformations::position_world_to_clip
+#import bevy_render::view::position_world_to_clip
 
 struct GrassMaterial {
     wind_direction: vec2<f32>,
@@ -17,13 +18,19 @@ struct GrassMaterial {
     flutter_strength: f32,
     flutter_speed: f32,
     interaction_count: u32,
-    _padding: vec2<f32>,
+    interaction_map_active: u32,
+    interaction_map_region: vec4<f32>,
     zone_centers_radius: array<vec4<f32>, 4>,
     zone_behavior: array<vec4<f32>, 4>,
 };
 
 @group(#{MATERIAL_BIND_GROUP}) @binding(100)
 var<uniform> grass_material: GrassMaterial;
+
+@group(#{MATERIAL_BIND_GROUP}) @binding(101)
+var interaction_map_texture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(102)
+var interaction_map_sampler: sampler;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -41,8 +48,6 @@ fn hash12(p: vec2<f32>) -> f32 {
 }
 
 // Smooth value noise using bilinear interpolation of hash values.
-// Produces a continuous, non-flickering noise signal suitable for
-// rolling gust waves across the grass field.
 fn value_noise(p: vec2<f32>) -> f32 {
     let i = floor(p);
     let f = fract(p);
@@ -54,6 +59,30 @@ fn value_noise(p: vec2<f32>) -> f32 {
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
 }
 
+/// Sample the interaction map at a world XZ position.
+/// Returns vec4: xy = bend direction (-1..1), z = flatten (0..1), w = hide (0..1).
+fn sample_interaction_map(world_xz: vec2<f32>) -> vec4<f32> {
+    if (grass_material.interaction_map_active == 0u) {
+        return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+    }
+    // Compute UV from world position and map region
+    let center = grass_material.interaction_map_region.xy;
+    let inv_extent = grass_material.interaction_map_region.zw;
+    let uv = (world_xz - center) * inv_extent + vec2<f32>(0.5);
+
+    // Clamp to avoid sampling outside the map
+    let clamped_uv = clamp(uv, vec2<f32>(0.001), vec2<f32>(0.999));
+    let texel = textureSampleLevel(interaction_map_texture, interaction_map_sampler, clamped_uv, 0.0);
+
+    // Decode: R,G are bend direction (128/255 = neutral), B = flatten, A = hide
+    let bend_x = (texel.r - 0.5) * 2.0; // -1..1
+    let bend_z = (texel.g - 0.5) * 2.0; // -1..1
+    let flatten = texel.b;               // 0..1
+    let hide = texel.a;                  // 0..1
+
+    return vec4<f32>(bend_x, bend_z, flatten, hide);
+}
+
 fn world_displacement(
     root_world: vec3<f32>,
     height_factor: f32,
@@ -62,11 +91,14 @@ fn world_displacement(
     interaction_strength: f32,
     random_value: f32,
 ) -> vec3<f32> {
-    let wind_dir = normalize(vec3<f32>(
+    // Safe normalize: when wind direction is zero, use a fallback to avoid NaN.
+    let raw_dir = vec3<f32>(
         grass_material.wind_direction.x,
         0.0,
         grass_material.wind_direction.y,
-    ));
+    );
+    let dir_len = length(raw_dir);
+    let wind_dir = select(raw_dir / dir_len, vec3<f32>(1.0, 0.0, 0.0), dir_len < 0.0001);
     let side_dir = vec3<f32>(-wind_dir.z, 0.0, wind_dir.x);
     let macro_wave = sin(
         dot(root_world.xz, grass_material.wind_direction * grass_material.sway_frequency)
@@ -81,6 +113,14 @@ fn world_displacement(
     var displacement = wind_dir * (macro_wave * grass_material.sway_strength + gust_noise * grass_material.gust_strength);
     displacement += side_dir * flutter;
 
+    // --- Interaction map sampling ---
+    let imap = sample_interaction_map(root_world.xz);
+    let map_bend = vec3<f32>(imap.x, 0.0, imap.y);
+    let map_flatten = imap.z;
+    displacement += map_bend * interaction_strength * 0.8;
+    displacement.y -= map_flatten * interaction_strength * 0.6;
+
+    // --- Legacy interaction zones (fallback / additive) ---
     let count = min(grass_material.interaction_count, 4u);
     for (var i = 0u; i < count; i += 1u) {
         let zone = grass_material.zone_centers_radius[i];
@@ -108,6 +148,11 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     let base_world = world_from_local * vec4<f32>(vertex.position, 1.0);
     let root_world = world_from_local * vec4<f32>(vertex.root_phase.xyz, 1.0);
+
+    // Check interaction map hide mask — if fully hidden, collapse vertex to root
+    let imap = sample_interaction_map(root_world.xz);
+    let hide_factor = 1.0 - imap.w; // 1 = visible, 0 = hidden
+
     let displacement = world_displacement(
         root_world.xyz,
         vertex.uv.y,
@@ -117,11 +162,15 @@ fn vertex(vertex: Vertex) -> VertexOutput {
         vertex.variation.z,
     );
 
-    out.position = position_world_to_clip(base_world.xyz + displacement);
-    out.world_position = vec4<f32>(base_world.xyz + displacement, 1.0);
+    // Scale displacement by hide factor — hidden blades collapse to root position
+    let final_pos = mix(root_world.xyz, base_world.xyz + displacement, hide_factor);
+
+    out.position = position_world_to_clip(final_pos, view.clip_from_world);
+    out.world_position = vec4<f32>(final_pos, 1.0);
     out.world_normal = normalize((world_from_local * vec4<f32>(vertex.normal, 0.0)).xyz + displacement * 0.08);
     out.uv = vertex.uv;
-    out.color = vertex.color;
+    // Modulate alpha by hide factor for smooth fade-out
+    out.color = vec4<f32>(vertex.color.rgb, vertex.color.a * hide_factor);
 
 #ifdef VISIBILITY_RANGE_DITHER
     out.visibility_range_dither = get_visibility_range_dither_level(
