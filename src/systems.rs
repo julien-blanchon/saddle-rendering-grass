@@ -3,7 +3,6 @@ use bevy::light::NotShadowCaster;
 use bevy::mesh::Mesh3d;
 use bevy::pbr::MeshMaterial3d;
 use bevy::prelude::*;
-use saddle_world_wind::{WindConfig, WindZone, sample_wind_with_zones, snapshot_zone};
 
 use crate::components::{GrassChunkRuntime, GrassGenerated, GrassPatchState};
 use crate::config::{GrassConfig, GrassSurface};
@@ -17,6 +16,7 @@ use crate::resources::{
 };
 use crate::scatter::{mesh_chunk_samples, planar_chunk_samples};
 use crate::surface::{ChunkLayout, SurfaceBake, bake_mesh_surface};
+use crate::wind::{WindConfig, WindZone, WindZoneSnapshot, sample_wind_with_zones, snapshot_zone};
 use crate::{GrassInteractionZone, GrassMaterial, GrassPatch, GrassRebuildRequest};
 
 pub(crate) fn runtime_is_active(runtime: Res<GrassRuntimeState>) -> bool {
@@ -685,9 +685,7 @@ fn chunk_local_transform(
     Transform::from_matrix(local)
 }
 
-fn world_wind_snapshots(
-    zones: &Query<(&WindZone, &GlobalTransform)>,
-) -> Vec<saddle_world_wind::WindZoneSnapshot> {
+fn world_wind_snapshots(zones: &Query<(&WindZone, &GlobalTransform)>) -> Vec<WindZoneSnapshot> {
     let mut snapshots = zones
         .iter()
         .map(|(zone, transform)| snapshot_zone(zone, transform))
@@ -700,7 +698,7 @@ fn resolve_grass_wind(
     fallback_wind: &GrassWind,
     wind_bridge: &GrassWindBridge,
     wind_config: Option<&WindConfig>,
-    zone_snapshots: &[saddle_world_wind::WindZoneSnapshot],
+    zone_snapshots: &[WindZoneSnapshot],
     sample_point: Vec3,
     time_secs: f32,
 ) -> GrassWind {

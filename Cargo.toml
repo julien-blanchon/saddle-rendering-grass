@@ -12,7 +12,6 @@ name = "grass"
 
 [dependencies]
 bevy = "0.18"
-saddle-world-wind = { git = "https://github.com/julien-blanchon/saddle-world-wind" }
 
 [workspace]
 

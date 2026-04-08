@@ -1,5 +1,6 @@
 use bevy::prelude::*;
-use saddle_world_wind::WindSample;
+
+use crate::WindSample;
 
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Default)]

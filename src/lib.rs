@@ -17,6 +17,7 @@ mod resources;
 mod scatter;
 mod surface;
 mod systems;
+mod wind;
 
 pub use components::{GrassInteractionZone, GrassPatch, GrassPatchBundle};
 pub use config::{
@@ -28,6 +29,10 @@ pub use interaction::{GrassInteractionActor, GrassInteractionMap, GrassInteracti
 pub use messages::GrassRebuildRequest;
 pub use resources::{
     GrassDebugSettings, GrassDiagnostics, GrassPatchDiagnostics, GrassWind, GrassWindBridge,
+};
+pub use wind::{
+    WindBlendMode, WindConfig, WindPlugin, WindProfile, WindSample, WindZone, WindZoneFalloff,
+    WindZoneShape,
 };
 
 pub use materials::{ATTRIBUTE_GRASS_ROOT_PHASE, ATTRIBUTE_GRASS_VARIATION, MAX_INTERACTION_ZONES};

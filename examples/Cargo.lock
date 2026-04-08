@@ -331,9 +331,9 @@ dependencies = [
 
 [[package]]
 name = "atomicow"
-version = "1.1.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f52e8890bb9844440d0c412fa74b67fd2f14e85248b6e00708059b6da9e5f8bf"
+checksum = "301801c08259e328a1c7da556608c0c22687708831b22024dbd3a57ea741e6de"
 dependencies = [
  "portable-atomic",
  "portable-atomic-util",
@@ -982,7 +982,7 @@ dependencies = [
 [[package]]
 name = "bevy_iconify"
 version = "0.1.0"
-source = "git+https://github.com/julien-blanchon/saddle-pane#f0f0e26fdabf5d0463a59bba4f0958cba020f2b2"
+source = "git+https://github.com/julien-blanchon/saddle-pane#d7251bcf3fa63e5839f52bafab4b37a711e01852"
 dependencies = [
  "blake3",
  "fst",
@@ -999,7 +999,7 @@ dependencies = [
 [[package]]
 name = "bevy_iconify_image"
 version = "0.1.0"
-source = "git+https://github.com/julien-blanchon/saddle-pane#f0f0e26fdabf5d0463a59bba4f0958cba020f2b2"
+source = "git+https://github.com/julien-blanchon/saddle-pane#d7251bcf3fa63e5839f52bafab4b37a711e01852"
 dependencies = [
  "bevy",
  "tiny-skia",
@@ -2608,9 +2608,9 @@ dependencies = [
 
 [[package]]
 name = "fastrand"
-version = "2.3.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
+checksum = "9f1f227452a390804cdb637b74a86990f2a7d7ba4b7d5693aac9b4dd6defd8d6"
 
 [[package]]
 name = "fdeflate"
@@ -3135,7 +3135,6 @@ dependencies = [
  "grass_example_common",
  "saddle-pane",
  "saddle-rendering-grass",
- "saddle-world-wind",
 ]
 
 [[package]]
@@ -4657,7 +4656,7 @@ version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e67ba7e9b2b56446f1d419b1d807906278ffa1a658a8a5d8a39dcb1f5a78614f"
 dependencies = [
- "toml_edit 0.25.10+spec-1.1.0",
+ "toml_edit 0.25.11+spec-1.1.0",
 ]
 
 [[package]]
@@ -5049,7 +5048,7 @@ dependencies = [
 [[package]]
 name = "saddle-bevy-e2e"
 version = "0.1.0"
-source = "git+https://github.com/julien-blanchon/saddle-bevy-e2e#18b89f5851c6b2edd7067f737b89a3f332149ea4"
+source = "git+https://github.com/julien-blanchon/saddle-bevy-e2e#ac298551d2fb8157657bffbcbe4d060bb0ca1616"
 dependencies = [
  "bevy",
  "serde",
@@ -5059,7 +5058,7 @@ dependencies = [
 [[package]]
 name = "saddle-pane"
 version = "0.1.0"
-source = "git+https://github.com/julien-blanchon/saddle-pane#f0f0e26fdabf5d0463a59bba4f0958cba020f2b2"
+source = "git+https://github.com/julien-blanchon/saddle-pane#d7251bcf3fa63e5839f52bafab4b37a711e01852"
 dependencies = [
  "bevy",
  "bevy_flair",
@@ -5073,7 +5072,7 @@ dependencies = [
 [[package]]
 name = "saddle-pane-derive"
 version = "0.1.0"
-source = "git+https://github.com/julien-blanchon/saddle-pane#f0f0e26fdabf5d0463a59bba4f0958cba020f2b2"
+source = "git+https://github.com/julien-blanchon/saddle-pane#d7251bcf3fa63e5839f52bafab4b37a711e01852"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5083,15 +5082,6 @@ dependencies = [
 [[package]]
 name = "saddle-rendering-grass"
 version = "0.1.0"
-dependencies = [
- "bevy",
- "saddle-world-wind",
-]
-
-[[package]]
-name = "saddle-world-wind"
-version = "0.1.0"
-source = "git+https://github.com/julien-blanchon/saddle-world-wind#20820b8abb70a360e514057409b77f4b013c79b1"
 dependencies = [
  "bevy",
 ]
@@ -5630,9 +5620,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.51.0"
+version = "1.51.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd1c4c0fc4a7ab90fc15ef6daaa3ec3b893f004f915f2392557ed23237820cd"
+checksum = "f66bf9585cda4b724d3e78ab34b73fb2bbaba9011b9bfdf69dc836382ea13b8c"
 dependencies = [
  "pin-project-lite",
 ]
@@ -5669,9 +5659,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.25.10+spec-1.1.0"
+version = "0.25.11+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a82418ca169e235e6c399a84e395ab6debeb3bc90edc959bf0f48647c6a32d1b"
+checksum = "0b59c4d22ed448339746c59b905d24568fcbb3ab65a500494f7b8c3e97739f2b"
 dependencies = [
  "indexmap",
  "toml_datetime 1.1.1+spec-1.1.0",
