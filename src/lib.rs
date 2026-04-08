@@ -85,10 +85,18 @@ impl Plugin for GrassPlugin {
             app.init_schedule(NeverDeactivateSchedule);
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         load_internal_asset!(
             app,
             GRASS_VERTEX_SHADER_HANDLE,
             "shaders/grass_vertex.wgsl",
+            Shader::from_wgsl
+        );
+        #[cfg(target_arch = "wasm32")]
+        load_internal_asset!(
+            app,
+            GRASS_VERTEX_SHADER_HANDLE,
+            "shaders/grass_vertex_web.wgsl",
             Shader::from_wgsl
         );
 
