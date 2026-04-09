@@ -32,7 +32,6 @@ fn world_wind_bridge_scales_runtime_response_from_sample_metrics() {
         gust_factor: 0.75,
         turbulence_strength: 0.5,
         flutter_factor: 0.4,
-        ..default()
     };
 
     let resolved = fallback.resolved_from_world_sample(&bridge, &sample);

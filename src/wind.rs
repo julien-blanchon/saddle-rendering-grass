@@ -64,17 +64,9 @@ impl WindProfile {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct WindPlugin {
     config: WindConfig,
-}
-
-impl Default for WindPlugin {
-    fn default() -> Self {
-        Self {
-            config: WindConfig::default(),
-        }
-    }
 }
 
 impl WindPlugin {
