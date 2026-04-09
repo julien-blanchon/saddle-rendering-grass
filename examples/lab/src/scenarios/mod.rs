@@ -79,12 +79,12 @@ fn build_smoke() -> Scenario {
             |diagnostics| diagnostics.visible_blades > 2_000,
         ))
         .then(assertions::custom("mesh-aligned slope patch generated", |world| {
-            support::patch(world, "Slope Meadow")
-                .is_some_and(|patch| patch.chunk_count > 0 && patch.blade_count > 0)
+            support::patch_has_blades(world, "Slope Meadow")
+                && support::patch(world, "Slope Meadow")
+                    .is_some_and(|patch| patch.chunk_count > 0)
         }))
         .then(assertions::custom("interaction strip generated", |world| {
-            support::patch(world, "Interaction Strip")
-                .is_some_and(|patch| patch.visible_chunk_count > 0)
+            support::patch_has_visible_chunks(world, "Interaction Strip")
         }))
         .then(inspect::log_resource::<GrassDiagnostics>("smoke diagnostics"))
         .then(Action::Screenshot("grass_smoke".into()))
@@ -98,13 +98,10 @@ fn build_wind_showcase() -> Scenario {
         .description(
             "Capture two wind checkpoints and verify the animated wind resource actually changes over time.",
         )
-        .then(Action::Custom(Box::new(|world| {
-            support::move_camera(
-                world,
-                Vec3::new(-4.0, 5.5, 12.0),
-                Vec3::new(0.0, 0.8, -6.0),
-            );
-        })))
+        .then(support::focus_camera_action(
+            Vec3::new(-4.0, 5.5, 12.0),
+            Vec3::new(0.0, 0.8, -6.0),
+        ))
         .then(Action::WaitFrames(45))
         .then(Action::Custom(Box::new(|world| {
             let wind = world.resource::<GrassWind>();
@@ -138,13 +135,10 @@ fn build_lod_showcase() -> Scenario {
         .description(
             "Move between near and far views of the large meadow and verify visible blade density drops with distance.",
         )
-        .then(Action::Custom(Box::new(|world| {
-            support::move_camera(
-                world,
-                Vec3::new(0.0, 6.5, -36.0),
-                Vec3::new(0.0, 0.0, -52.0),
-            );
-        })))
+        .then(support::focus_camera_action(
+            Vec3::new(0.0, 6.5, -36.0),
+            Vec3::new(0.0, 0.0, -52.0),
+        ))
         .then(Action::WaitFrames(75))
         .then(Action::Custom(Box::new(|world| {
             let patch = support::patch(world, "Open Meadow LOD")
@@ -156,13 +150,10 @@ fn build_lod_showcase() -> Scenario {
         })))
         .then(Action::Screenshot("grass_lod_near".into()))
         .then(Action::WaitFrames(1))
-        .then(Action::Custom(Box::new(|world| {
-            support::move_camera(
-                world,
-                Vec3::new(0.0, 10.0, 16.0),
-                Vec3::new(0.0, 0.0, -52.0),
-            );
-        })))
+        .then(support::focus_camera_action(
+            Vec3::new(0.0, 10.0, 16.0),
+            Vec3::new(0.0, 0.0, -52.0),
+        ))
         .then(Action::WaitFrames(120))
         .then(assertions::custom("far view reduces visible blades", |world| {
             let snapshot = world.resource::<LodSnapshot>();
@@ -192,13 +183,10 @@ fn build_interaction_strip() -> Scenario {
         .description(
             "Focus on the interaction strip, verify the moving bend zone travels through the grass, and capture two checkpoints.",
         )
-        .then(Action::Custom(Box::new(|world| {
-            support::move_camera(
-                world,
-                Vec3::new(14.0, 5.5, 9.0),
-                Vec3::new(14.0, 0.5, -8.0),
-            );
-        })))
+        .then(support::focus_camera_action(
+            Vec3::new(14.0, 5.5, 9.0),
+            Vec3::new(14.0, 0.5, -8.0),
+        ))
         .then(Action::WaitFrames(45))
         .then(Action::Custom(Box::new(|world| {
             let position =
@@ -251,19 +239,12 @@ fn build_rebuild_request() -> Scenario {
         })))
         .then(Action::WaitFrames(4))
         .then(assertions::custom("courtyard patch marked dirty after rebuild request", |world| {
-            world
-                .resource::<GrassDiagnostics>()
-                .patches
-                .iter()
-                .any(|p| p.name == "Courtyard Turf" && p.dirty)
+            support::patch_is_dirty(world, "Courtyard Turf")
         }))
         .then(Action::WaitFrames(60))
         .then(assertions::custom("courtyard patch regenerated after rebuild request", |world| {
-            world
-                .resource::<GrassDiagnostics>()
-                .patches
-                .iter()
-                .any(|p| p.name == "Courtyard Turf" && p.blade_count > 0 && !p.dirty)
+            support::patch(world, "Courtyard Turf")
+                .is_some_and(|patch| patch.blade_count > 0 && !patch.dirty)
         }))
         .then(inspect::log_resource::<GrassDiagnostics>("rebuild diagnostics"))
         .then(Action::Screenshot("grass_rebuild_request".into()))
@@ -476,16 +457,16 @@ fn build_blade_shapes() -> Scenario {
         })))
         .then(Action::WaitFrames(90))
         .then(assertions::custom("Strip shape generates blades", |world| {
-            support::patch(world, "Shape: Strip").is_some_and(|p| p.blade_count > 0)
+            support::patch_has_blades(world, "Shape: Strip")
         }))
         .then(assertions::custom("CrossBillboard shape generates blades", |world| {
-            support::patch(world, "Shape: Cross").is_some_and(|p| p.blade_count > 0)
+            support::patch_has_blades(world, "Shape: Cross")
         }))
         .then(assertions::custom("FlatCard shape generates blades", |world| {
-            support::patch(world, "Shape: Card").is_some_and(|p| p.blade_count > 0)
+            support::patch_has_blades(world, "Shape: Card")
         }))
         .then(assertions::custom("SingleTriangle shape generates blades", |world| {
-            support::patch(world, "Shape: Triangle").is_some_and(|p| p.blade_count > 0)
+            support::patch_has_blades(world, "Shape: Triangle")
         }))
         .then(Action::Screenshot("grass_blade_shapes".into()))
         .then(Action::WaitFrames(1))
@@ -538,7 +519,9 @@ fn build_stylized() -> Scenario {
         })))
         .then(Action::WaitFrames(90))
         .then(assertions::custom("anime grass generates visible blades", |world| {
-            support::patch(world, "Anime Grass").is_some_and(|p| p.blade_count > 0 && p.visible_blade_count > 0)
+            support::patch_has_blades(world, "Anime Grass")
+                && support::patch(world, "Anime Grass")
+                    .is_some_and(|p| p.visible_blade_count > 0)
         }))
         .then(Action::Screenshot("grass_stylized".into()))
         .then(Action::WaitFrames(1))
